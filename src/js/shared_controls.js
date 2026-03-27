@@ -979,7 +979,7 @@ $(document).on('click', '.trainer-team-slot', function () {
 	if (!trainerId || !speciesName) return;
 	var setId = speciesName + ' (' + trainerId + ')';
 	var container = $(this).closest('.poke-info');
-	container.find('.set-selector').val(setId).change();
+	setSetSelectorAndSync(container, setId);
 });
 
 function formatMovePool(moves) {
@@ -1914,6 +1914,31 @@ function getSetOptions(sets) {
 	return setOptions;
 }
 
+function getSetOptionById(setId) {
+	if (!setId) return null;
+	var options = getSetOptions();
+	for (var i = 0; i < options.length; i++) {
+		if (options[i] && options[i].id === setId) return options[i];
+	}
+	return null;
+}
+
+function setSetSelectorAndSync(pokeObjOrSelector, setId) {
+	if (!setId) return false;
+	var selector = pokeObjOrSelector && pokeObjOrSelector.jquery ?
+		(pokeObjOrSelector.hasClass('set-selector') ? pokeObjOrSelector : pokeObjOrSelector.find('.set-selector')) :
+		$(pokeObjOrSelector);
+	if (!selector || !selector.length) return false;
+
+	selector.val(setId);
+	if (selector.data('select2')) {
+		var selectedOption = getSetOptionById(setId);
+		if (selectedOption) selector.select2('data', selectedOption);
+	}
+	selector.change();
+	return true;
+}
+
 function getSelectOptions(arr, sort, defaultOption) {
 	if (sort) {
 		arr.sort();
@@ -2076,7 +2101,9 @@ function loadDefaultLists() {
 			});
 		},
 		initSelection: function (element, callback) {
-			callback(getFirstValidSetOption());
+			var selectedId = element.val();
+			var selectedOption = getSetOptionById(selectedId);
+			callback(selectedOption || getFirstValidSetOption());
 		}
 	});
 }

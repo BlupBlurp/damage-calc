@@ -229,10 +229,68 @@ $(".notation").change(function () {
 	performCalculations();
 });
 
+function getInitialTrainerIdFromUrl() {
+	var params = new URLSearchParams(window.location.search);
+	var trainerId = params.get('trainerId') || params.get('trainerID') || params.get('trainer') || params.get('teamId');
+	if (trainerId) return String(trainerId).trim();
+}
+
+function getFirstTrainerSetIdFromOptions(trainerId) {
+	if (!trainerId || typeof window.RELUMI_INGAME_TRAINER_TEAMS === 'undefined') return '';
+	var team = window.RELUMI_INGAME_TRAINER_TEAMS[String(trainerId)];
+	if (!Array.isArray(team) || !team.length) return '';
+
+	var optionIndex = {};
+	var setOptions = getSetOptions();
+	for (var i = 0; i < setOptions.length; i++) {
+		if (setOptions[i] && setOptions[i].id) optionIndex[setOptions[i].id] = true;
+	}
+
+	for (var j = 0; j < team.length; j++) {
+		var candidate = String(team[j]) + ' (' + String(trainerId) + ')';
+		if (optionIndex[candidate]) return candidate;
+	}
+	return '';
+}
+
+function applyInitialTrainerSelectionToRight(trainerId, attempt) {
+	if (!trainerId || (typeof RELUMI_MODE !== 'undefined' && !RELUMI_MODE)) return;
+	var tries = attempt || 0;
+	if (tries > 20) return;
+
+	var rightSelector = $('#p2 .set-selector');
+	if (!rightSelector.length || typeof window.RELUMI_INGAME_TRAINER_TEAMS === 'undefined') {
+		setTimeout(function () {
+			applyInitialTrainerSelectionToRight(trainerId, tries + 1);
+		}, 50);
+		return;
+	}
+
+	if (!$('#set-source-ingame').prop('checked')) {
+		$('#set-source-ingame').prop('checked', true).change();
+	}
+
+	var setId = getFirstTrainerSetIdFromOptions(trainerId);
+	if (!setId) {
+		setTimeout(function () {
+			applyInitialTrainerSelectionToRight(trainerId, tries + 1);
+		}, 50);
+		return;
+	}
+
+	if (typeof window.setSetSelectorAndSync === 'function') {
+		window.setSetSelectorAndSync(rightSelector, setId);
+	} else {
+		rightSelector.val(setId).change();
+	}
+	performCalculations();
+}
+
 $(document).ready(function () {
 	var params = new URLSearchParams(window.location.search);
 	var m = params.get('mode');
 	var setSource = params.get('setSource');
+	var trainerId = getInitialTrainerIdFromUrl();
 	$('#randoms').prop('checked', true);
 	if (setSource === 'ingame') {
 		$('#set-source-ingame').prop('checked', true);
@@ -268,6 +326,10 @@ $(document).ready(function () {
 		} catch (e) {
 			console.error('Failed to decode Import parameter:', e);
 		}
+	}
+
+	if (trainerId) {
+		applyInitialTrainerSelectionToRight(trainerId, 0);
 	}
 
 	$(".calc-trigger").bind("change keyup", PC_HANDLER);
