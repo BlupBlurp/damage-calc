@@ -190,9 +190,7 @@ $("input:radio[name='setSource']").change(function () {
 		$('.poke-info .info-group.top > .gen-specific.g9').hide();
 		$('.pool').hide();
 	} else {
-		if (RELUMI_MODE) {
-			$('.poke-info .info-group.top > .gen-specific.g9').show();
-		}
+		$('.poke-info .info-group.top > .gen-specific.g9').hide();
 	}
 	randdex = getRelumiRanddexForCurrentSource();
 	loadDefaultLists();
