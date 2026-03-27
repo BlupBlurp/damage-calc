@@ -9,9 +9,40 @@ const showdownRoot = path.resolve(root, '..', 'pokemon-showdown');
 
 const relumiSinglesPath = path.join(showdownRoot, 'data', 'random-battles', 'gen8relumi', 'sets.json');
 const relumiDoublesPath = path.join(showdownRoot, 'data', 'random-battles', 'gen8relumi', 'doubles-sets.json');
+const trainerTablePath = path.join(showdownRoot, 'game-files', 'TrainerTable.json');
+const abilityNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_tokusei.json');
+const moveNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_wazaname.json');
 
 const {Dex} = require(path.join(showdownRoot, 'dist', 'sim', 'dex'));
 const dex = Dex.mod('gen8relumi');
+
+const NATURE_NAMES_BY_ID = [
+  'Hardy',
+  'Lonely',
+  'Brave',
+  'Adamant',
+  'Naughty',
+  'Bold',
+  'Docile',
+  'Relaxed',
+  'Impish',
+  'Lax',
+  'Timid',
+  'Hasty',
+  'Serious',
+  'Jolly',
+  'Naive',
+  'Modest',
+  'Mild',
+  'Quiet',
+  'Bashful',
+  'Rash',
+  'Calm',
+  'Gentle',
+  'Sassy',
+  'Careful',
+  'Quirky',
+];
 
 function uniq(arr) {
   return [...new Set(arr.filter(Boolean))];
@@ -19,6 +50,186 @@ function uniq(arr) {
 
 function roleKey(role, index) {
   return index === 1 ? role : `${role} ${index}`;
+}
+
+function getLabelString(entry) {
+  if (!entry || !entry.wordDataArray || !entry.wordDataArray.length) return '';
+  const firstWord = entry.wordDataArray[0];
+  if (!firstWord || typeof firstWord.str !== 'string') return '';
+  return firstWord.str.trim();
+}
+
+function extractIndexedNames(labelDataArray) {
+  const map = new Map();
+  for (const entry of labelDataArray || []) {
+    if (!entry || typeof entry.arrayIndex !== 'number') continue;
+    map.set(entry.arrayIndex, getLabelString(entry));
+  }
+  return map;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizeTrainerEvs(rawEvs) {
+  const out = {
+    hp: clamp(Number(rawEvs.hp) || 0, 0, 252),
+    atk: clamp(Number(rawEvs.atk) || 0, 0, 252),
+    def: clamp(Number(rawEvs.def) || 0, 0, 252),
+    spa: clamp(Number(rawEvs.spa) || 0, 0, 252),
+    spd: clamp(Number(rawEvs.spd) || 0, 0, 252),
+    spe: clamp(Number(rawEvs.spe) || 0, 0, 252),
+  };
+  if (!Object.values(out).some(v => v > 0)) return undefined;
+  return out;
+}
+
+function normalizeTrainerIvs(rawIvs) {
+  const out = {
+    hp: clamp(Number(rawIvs.hp) || 0, 0, 31),
+    atk: clamp(Number(rawIvs.atk) || 0, 0, 31),
+    def: clamp(Number(rawIvs.def) || 0, 0, 31),
+    spa: clamp(Number(rawIvs.spa) || 0, 0, 31),
+    spd: clamp(Number(rawIvs.spd) || 0, 0, 31),
+    spe: clamp(Number(rawIvs.spe) || 0, 0, 31),
+  };
+  if (!Object.values(out).some(v => v > 0)) return undefined;
+  return out;
+}
+
+function getSpeciesByMonsAndForm(monsNo, formNo) {
+  const allSpecies = dex.species.all();
+  const base = allSpecies.find(sp => sp?.exists && sp.num === monsNo && (!sp.forme || sp.baseSpecies === sp.name));
+  if (!base) return null;
+  if (!formNo) return base;
+
+  const ordered = [];
+  if (Array.isArray(base.formeOrder) && base.formeOrder.length) {
+    for (const name of base.formeOrder) ordered.push(name);
+  } else {
+    ordered.push(base.name);
+    if (Array.isArray(base.otherFormes)) {
+      for (const name of base.otherFormes) ordered.push(name);
+    }
+  }
+  if (ordered[0] !== base.name) ordered.unshift(base.name);
+  const candidate = ordered[formNo] || ordered[0];
+  const species = dex.species.get(candidate);
+  if (species?.exists) return species;
+
+  if (Array.isArray(base.otherFormes) && formNo - 1 >= 0 && formNo - 1 < base.otherFormes.length) {
+    const alt = dex.species.get(base.otherFormes[formNo - 1]);
+    if (alt?.exists) return alt;
+  }
+  return base;
+}
+
+function buildInGameTeams() {
+  const trainerTable = JSON.parse(fs.readFileSync(trainerTablePath, 'utf8'));
+  const abilityNames = extractIndexedNames(JSON.parse(fs.readFileSync(abilityNamesPath, 'utf8')).labelDataArray || []);
+  const moveNames = extractIndexedNames(JSON.parse(fs.readFileSync(moveNamesPath, 'utf8')).labelDataArray || []);
+
+  const itemNameByNo = new Map();
+  for (const item of dex.items.all()) {
+    if (!item?.exists || !Number.isFinite(item.num) || item.num <= 0) continue;
+    if (!itemNameByNo.has(item.num)) itemNameByNo.set(item.num, item.name);
+  }
+
+  const setsBySpecies = {};
+  const trainerTeams = {};
+
+  for (const row of trainerTable.TrainerPoke || []) {
+    const trainerId = String(Number(row.ID || 0));
+    if (!trainerId || trainerId === '0') continue;
+
+    const members = [];
+    for (let slot = 1; slot <= 6; slot++) {
+      const monsNo = Number(row[`P${slot}MonsNo`] || 0);
+      if (!monsNo) continue;
+
+      const formNo = Number(row[`P${slot}FormNo`] || 0);
+      const species = getSpeciesByMonsAndForm(monsNo, formNo);
+      if (!species || !species.exists || !species.name) continue;
+
+      const moveList = [];
+      for (let m = 1; m <= 4; m++) {
+        const moveNo = Number(row[`P${slot}Waza${m}`] || 0);
+        if (!moveNo) continue;
+        const moveName = (moveNames.get(moveNo) || '').trim();
+        if (!moveName || moveName === '---') continue;
+        const move = dex.moves.get(moveName);
+        if (!move?.exists || !move.name || moveList.includes(move.name)) continue;
+        moveList.push(move.name);
+      }
+
+      const abilityNo = Number(row[`P${slot}Tokusei`] || 0);
+      const abilityName = (abilityNames.get(abilityNo) || '').trim();
+      const ability = dex.abilities.get(abilityName);
+      const fallbackAbilities = Object.values(species.abilities || {}).filter(Boolean);
+      const abilities = ability?.exists ? [ability.name] : (fallbackAbilities.length ? [fallbackAbilities[0]] : ['No Ability']);
+
+      const itemNo = Number(row[`P${slot}Item`] || 0);
+      const itemName = itemNameByNo.get(itemNo);
+
+      const natureNo = Number(row[`P${slot}Seikaku`] || 0);
+      const natureName = NATURE_NAMES_BY_ID[natureNo] || 'Hardy';
+
+      const evs = normalizeTrainerEvs({
+        hp: row[`P${slot}EffortHp`],
+        atk: row[`P${slot}EffortAtk`],
+        def: row[`P${slot}EffortDef`],
+        spa: row[`P${slot}EffortSpAtk`],
+        spd: row[`P${slot}EffortSpDef`],
+        spe: row[`P${slot}EffortAgi`],
+      });
+      const ivs = normalizeTrainerIvs({
+        hp: row[`P${slot}TalentHp`],
+        atk: row[`P${slot}TalentAtk`],
+        def: row[`P${slot}TalentDef`],
+        spa: row[`P${slot}TalentSpAtk`],
+        spd: row[`P${slot}TalentSpDef`],
+        spe: row[`P${slot}TalentAgi`],
+      });
+
+      const set = {
+        level: Number(row[`P${slot}Level`] || 100),
+        abilities,
+        items: itemName ? [itemName] : [],
+        nature: natureName,
+        moves: moveList,
+        teraTypes: species.types ? species.types.slice() : ['Normal'],
+        role: 'Trainer Team',
+        trainerId,
+      };
+      if (evs) set.evs = evs;
+      if (ivs) set.ivs = ivs;
+
+      members.push({
+        speciesName: species.name,
+        slot,
+        set,
+      });
+    }
+
+    if (!members.length) continue;
+    const teamNames = members.map(member => member.speciesName);
+    trainerTeams[trainerId] = teamNames;
+
+    for (const member of members) {
+      if (!setsBySpecies[member.speciesName]) setsBySpecies[member.speciesName] = {};
+
+      let setName = trainerId;
+      if (setsBySpecies[member.speciesName][setName]) {
+        setName = `${trainerId}-${member.slot}`;
+      }
+      member.set.team = teamNames;
+      member.set.teamSlot = member.slot;
+      setsBySpecies[member.speciesName][setName] = member.set;
+    }
+  }
+
+  return {setsBySpecies, trainerTeams};
 }
 
 function convertRelumiSets(rawSets) {
@@ -181,12 +392,18 @@ function writeJS(filePath, varName, obj) {
   fs.writeFileSync(filePath, content);
 }
 
+function writeJSGlobalBundle(filePath, entries) {
+  const lines = entries.map(([varName, obj]) => `window.${varName} = ${JSON.stringify(obj)};`);
+  fs.writeFileSync(filePath, `${lines.join('\n')}\n`);
+}
+
 function main() {
   const singlesRaw = JSON.parse(fs.readFileSync(relumiSinglesPath, 'utf8'));
   const doublesRaw = JSON.parse(fs.readFileSync(relumiDoublesPath, 'utf8'));
 
   const randomSingles = convertRelumiSets(singlesRaw);
   const randomDoubles = convertRelumiSets(doublesRaw);
+  const inGameTeams = buildInGameTeams();
 
   const species = buildSpecies();
   const moves = buildMoves();
@@ -198,6 +415,10 @@ function main() {
 
   writeJS(path.join(dataDir, 'relumi-random-sets.js'), 'RELUMI_RANDOM_BATTLE', randomSingles);
   writeJS(path.join(dataDir, 'relumi-random-doubles-sets.js'), 'RELUMI_RANDOM_DOUBLES_BATTLE', randomDoubles);
+  writeJSGlobalBundle(path.join(dataDir, 'relumi-ingame-teams.js'), [
+    ['RELUMI_INGAME_TEAMS', inGameTeams.setsBySpecies],
+    ['RELUMI_INGAME_TRAINER_TEAMS', inGameTeams.trainerTeams],
+  ]);
   writeJS(path.join(dataDir, 'relumi-dex-overrides.js'), 'RELUMI_DEX_OVERRIDES', {
     species,
     moves,
@@ -205,7 +426,7 @@ function main() {
     items,
   });
 
-  console.log('Generated Relumi random set and dex override data for damage-calc.');
+  console.log('Generated Relumi random sets, in-game trainer teams, and dex override data for damage-calc.');
 }
 
 main();

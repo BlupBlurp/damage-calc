@@ -43,6 +43,58 @@ var RELUMI_MODE =
 	typeof RELUMI_RANDOM_BATTLE !== 'undefined' &&
 	typeof RELUMI_RANDOM_DOUBLES_BATTLE !== 'undefined' &&
 	typeof RELUMI_DEX_OVERRIDES !== 'undefined';
+var RELUMI_INGAME_MODE_AVAILABLE = typeof RELUMI_INGAME_TEAMS !== 'undefined';
+
+function getRelumiRandomDexByBattleFormat() {
+	return $("input:radio[name='format']:checked").val() === 'Doubles' ? RELUMI_RANDOM_DOUBLES_BATTLE : RELUMI_RANDOM_BATTLE;
+}
+
+function isInGameTeamsMode() {
+	return RELUMI_MODE && RELUMI_INGAME_MODE_AVAILABLE && $("#set-source-ingame").prop('checked');
+}
+
+function getRelumiRanddexForCurrentSource() {
+	if (!RELUMI_MODE) return RANDDEX[gen];
+	return isInGameTeamsMode() ? RELUMI_INGAME_TEAMS : getRelumiRandomDexByBattleFormat();
+}
+
+function getTrainerSpriteName(speciesName) {
+	if (!speciesName) return '';
+	return speciesName.toLowerCase()
+		.replace(/♂/g, 'm')
+		.replace(/♀/g, 'f')
+		.replace(/[^a-z0-9\s-]/g, '')
+		.replace(/\s+/g, '')
+		.replace(/-+/g, '');
+}
+
+function renderTrainerTeamStrip(pokeObj, trainerId, selectedSpecies) {
+	var strip = pokeObj.find('.trainer-team-strip');
+	if (!strip.length) return;
+	if (!isInGameTeamsMode() || !trainerId || typeof RELUMI_INGAME_TRAINER_TEAMS === 'undefined') {
+		strip.empty().addClass('hide');
+		return;
+	}
+
+	var team = RELUMI_INGAME_TRAINER_TEAMS[String(trainerId)];
+	if (!team || !team.length) {
+		strip.empty().addClass('hide');
+		return;
+	}
+
+	var html = '';
+	for (var i = 0; i < team.length; i++) {
+		var memberName = team[i];
+		var spriteName = getTrainerSpriteName(memberName);
+		var isCurrent = memberName === selectedSpecies;
+		html += '<button type="button" class="trainer-team-slot' + (isCurrent ? ' current-team-slot' : '') + '" data-trainer-id="' + trainerId + '" data-species="' + memberName + '" title="' + memberName + '">';
+		html += '<img alt="' + memberName + '" src="https://play.pokemonshowdown.com/sprites/gen5/' + spriteName + '.png" />';
+		html += '<span>' + memberName + '</span>';
+		html += '</button>';
+	}
+
+	strip.html(html).removeClass('hide');
+}
 
 var CALC_STATUS = {
 	'Healthy': '',
@@ -97,7 +149,7 @@ function validate(obj, min, max) {
 $("input:radio[name='format']").change(function () {
 	var gameType = $("input:radio[name='format']:checked").val();
 	if (RELUMI_MODE && $("#randoms").prop("checked")) {
-		randdex = gameType === 'Doubles' ? RELUMI_RANDOM_DOUBLES_BATTLE : RELUMI_RANDOM_BATTLE;
+		randdex = getRelumiRanddexForCurrentSource();
 		loadDefaultLists();
 		var firstSet = getFirstValidSetOption();
 		if (firstSet && firstSet.id) {
@@ -115,6 +167,33 @@ $("input:radio[name='format']").change(function () {
 		$(this).show();
 	});
 	$(".format-specific").not("." + gameType.toLowerCase()).hide();
+});
+
+$("input:radio[name='setSource']").change(function () {
+	if (!(RELUMI_MODE && $("#randoms").prop("checked"))) return;
+	var isInGame = isInGameTeamsMode();
+	if ($('#ingame').length) {
+		$('#ingame').prop('checked', isInGame);
+		$('#randoms').prop('checked', !isInGame);
+	}
+	var params = new URLSearchParams(window.location.search);
+	if (isInGame) {
+		params.set('mode', 'ingame');
+		params.set('setSource', 'ingame');
+	} else {
+		params.set('mode', 'randoms');
+		params.delete('setSource');
+	}
+	if (window.history && window.history.replaceState) {
+		window.history.replaceState({}, document.title, window.location.pathname + '?' + params.toString());
+	}
+	randdex = getRelumiRanddexForCurrentSource();
+	loadDefaultLists();
+	var firstSet = getFirstValidSetOption();
+	if (firstSet && firstSet.id) {
+		$(".set-selector").val(firstSet.id);
+		$(".set-selector").change();
+	}
 });
 
 var defaultLevel = 100;
@@ -651,8 +730,24 @@ $(".set-selector").change(function () {
 		var abilityObj = pokeObj.find(".ability");
 		var itemObj = pokeObj.find(".item");
 		var randset;
+		var selectedTrainerId = null;
 		if ($("#randoms").prop("checked")) {
-			if (gen >= 8) {
+			if (RELUMI_MODE && isInGameTeamsMode()) {
+				randset = randdex[pokemonName] && randdex[pokemonName][setName];
+				if ((!randset || !Array.isArray(randset.moves) || randset.moves.length === 0) && randdex[pokemonName]) {
+					var fallbackSetNames = Object.keys(randdex[pokemonName]);
+					for (var fs = 0; fs < fallbackSetNames.length; fs++) {
+						var candidateSet = randdex[pokemonName][fallbackSetNames[fs]];
+						if (candidateSet && Array.isArray(candidateSet.moves) && candidateSet.moves.length) {
+							randset = candidateSet;
+							setName = fallbackSetNames[fs];
+							$(this).val(pokemonName + ' (' + setName + ')');
+							break;
+						}
+					}
+				}
+				selectedTrainerId = randset && randset.trainerId ? String(randset.trainerId) : setName;
+			} else if (gen >= 8) {
 				if (RELUMI_MODE) {
 					randset = randdex[pokemonName];
 				} else {
@@ -664,12 +759,17 @@ $(".set-selector").change(function () {
 			} else {
 				randset = randdex[pokemonName];
 			}
+			if (randset && randset.trainerId) {
+				selectedTrainerId = String(randset.trainerId);
+			}
 		}
 		var regSets = pokemonName in setdex && setName in setdex[pokemonName];
+		var isCustomRegSet = !!(regSets && setdex[pokemonName][setName] && setdex[pokemonName][setName].isCustomSet);
+		var activeRandset = isCustomRegSet ? null : randset;
 
-		if (randset) {
-			var listItems = randset.items ? randset.items : [];
-			var listAbilities = randset.abilities ? randset.abilities : [];
+		if (activeRandset) {
+			var listItems = activeRandset.items ? activeRandset.items : [];
+			var listAbilities = activeRandset.abilities ? activeRandset.abilities : [];
 			if (gen >= 3) $(this).closest('.poke-info').find(".ability-pool").show();
 			$(this).closest('.poke-info').find(".extraSetAbilities").text(listAbilities.join(', '));
 			if (gen >= 2) $(this).closest('.poke-info').find(".item-pool").show();
@@ -678,12 +778,12 @@ $(".set-selector").change(function () {
 				$(this).closest('.poke-info').find(".role-pool").show();
 				if (gen >= 9 && !RELUMI_MODE) $(this).closest('.poke-info').find(".tera-type-pool").show();
 			}
-			var listRoles = randset.roles ? Object.keys(randset.roles) : [];
+			var listRoles = activeRandset.roles ? Object.keys(activeRandset.roles) : [];
 			$(this).closest('.poke-info').find(".extraSetRoles").text(listRoles.join(', '));
 			var listTeraTypes = [];
-			if (randset.roles && gen >= 9) {
-				for (var roleName in randset.roles) {
-					var role = randset.roles[roleName];
+			if (activeRandset.roles && gen >= 9) {
+				for (var roleName in activeRandset.roles) {
+					var role = activeRandset.roles[roleName];
 					for (var q = 0; q < role.teraTypes.length; q++) {
 						if (listTeraTypes.indexOf(role.teraTypes[q]) === -1) {
 							listTeraTypes.push(role.teraTypes[q]);
@@ -701,41 +801,65 @@ $(".set-selector").change(function () {
 			$(this).closest('.poke-info').find(".role-pool").hide();
 			$(this).closest('.poke-info').find(".tera-type-pool").hide();
 		}
-		if (regSets || randset) {
-			var set = regSets ? correctHiddenPower(setdex[pokemonName][setName]) : randset;
+		if (regSets || activeRandset) {
+			var set = regSets ? correctHiddenPower(setdex[pokemonName][setName]) : activeRandset;
 			if (regSets && !RELUMI_MODE) {
 				pokeObj.find(".teraType").val(set.teraType || getForcedTeraType(pokemonName) || pokemon.types[0]);
 			}
 			pokeObj.find(".level").val(set.level === undefined ? 100 : set.level);
 			for (i = 0; i < LEGACY_STATS[gen].length; i++) {
-				var stat = $("#randoms").prop("checked") ? legacyStatToStat(LEGACY_STATS[gen][i]) : LEGACY_STATS[gen][i];
+				var legacyStat = LEGACY_STATS[gen][i];
+				var stat = $("#randoms").prop("checked") ? legacyStatToStat(legacyStat) : legacyStat;
+				var evValue = undefined;
+				var ivValue = undefined;
+				var dvValue = undefined;
+				if (set.evs) {
+					evValue = set.evs[stat];
+					if (evValue === undefined) evValue = set.evs[legacyStat];
+				}
+				if (set.ivs) {
+					ivValue = set.ivs[stat];
+					if (ivValue === undefined) ivValue = set.ivs[legacyStat];
+				}
+				if (set.dvs) {
+					dvValue = set.dvs[stat];
+					if (dvValue === undefined) dvValue = set.dvs[legacyStat];
+				}
 				pokeObj.find("." + LEGACY_STATS[gen][i] + " .evs").val(
-					(set.evs && set.evs[stat] !== undefined) ? set.evs[stat] : ($("#randoms").prop("checked") ? 84 : 0));
+					evValue !== undefined ? evValue : ($("#randoms").prop("checked") ? 84 : 0));
 				pokeObj.find("." + LEGACY_STATS[gen][i] + " .ivs").val(
-					(set.ivs && set.ivs[stat] !== undefined) ? set.ivs[stat] : 31);
+					ivValue !== undefined ? ivValue : 31);
 				pokeObj.find("." + LEGACY_STATS[gen][i] + " .dvs").val(
-					(set.dvs && set.dvs[stat] !== undefined) ? set.dvs[stat] : 15);
+					dvValue !== undefined ? dvValue : 15);
 			}
 			setSelectValueIfValid(pokeObj.find(".nature"), set.nature, "Hardy");
 			var abilityFallback = (typeof pokemon.abilities !== "undefined") ? pokemon.abilities[0] : "";
-			if ($("#randoms").prop("checked")) {
-				setSelectValueIfValid(abilityObj, randset.abilities && randset.abilities[0], abilityFallback);
-				setSelectValueIfValid(itemObj, randset.items && randset.items[0], "");
+			if ($("#randoms").prop("checked") && activeRandset) {
+				setSelectValueIfValid(abilityObj, activeRandset.abilities && activeRandset.abilities[0], abilityFallback);
+				setSelectValueIfValid(itemObj, activeRandset.items && activeRandset.items[0], "");
 			} else {
 				setSelectValueIfValid(abilityObj, set.ability, abilityFallback);
 				setSelectValueIfValid(itemObj, set.item, "");
 			}
 			var setMoves = set.moves;
-			if (randset) {
-				if (gen === 8 || gen === 1) {
-					setMoves = randset.moves;
+			if (activeRandset) {
+				if (Array.isArray(activeRandset.moves) && activeRandset.moves.length) {
+					setMoves = activeRandset.moves;
+				} else if (gen === 8 || gen === 1) {
+					setMoves = activeRandset.moves;
 				} else {
 					setMoves = [];
-					for (var role in randset.roles) {
-						for (var q = 0; q < randset.roles[role].moves.length; q++) {
-							var moveName = randset.roles[role].moves[q];
+					for (var role in activeRandset.roles) {
+						for (var q = 0; q < activeRandset.roles[role].moves.length; q++) {
+							var moveName = activeRandset.roles[role].moves[q];
 							if (setMoves.indexOf(moveName) === -1) setMoves.push(moveName);
 						}
+					}
+				}
+				if ((!setMoves || !setMoves.length) && RELUMI_MODE && typeof RELUMI_RANDOM_BATTLE !== 'undefined' && RELUMI_RANDOM_BATTLE[pokemonName]) {
+					var fallback = RELUMI_RANDOM_BATTLE[pokemonName];
+					if (Array.isArray(fallback.moves) && fallback.moves.length) {
+						setMoves = fallback.moves.slice();
 					}
 				}
 			}
@@ -746,7 +870,7 @@ $(".set-selector").change(function () {
 				setSelectValueIfValid(moveObj, moves[i], "(No Move)");
 				moveObj.change();
 			}
-			if (randset) {
+			if (activeRandset) {
 				$(this).closest('.poke-info').find(".move-pool").show();
 				$(this).closest('.poke-info').find(".extraSetMoves").html(formatMovePool(setMoves));
 			}
@@ -813,17 +937,28 @@ $(".set-selector").change(function () {
 			gen,
 			pokemon.gender,
 			pokeObj,
-			(regSets || randset) && set.gender ? set.gender : undefined
+			(regSets || activeRandset) && set.gender ? set.gender : undefined
 		);
 		$(".ability").each(function () {
 			if (checkRivalry($(this).val())) return; // stop after any Rivalry is found, no need to look further
 		});
 		abilityObj.change();
 		itemObj.change();
+		renderTrainerTeamStrip(pokeObj, selectedTrainerId, pokemonName);
 		if (RELUMI_MODE) {
 			pokeObj.find(".teraToggle").prop("checked", false);
 		}
 	}
+});
+
+$(document).on('click', '.trainer-team-slot', function () {
+	if (!isInGameTeamsMode()) return;
+	var trainerId = String($(this).attr('data-trainer-id') || '');
+	var speciesName = String($(this).attr('data-species') || '');
+	if (!trainerId || !speciesName) return;
+	var setId = speciesName + ' (' + trainerId + ')';
+	var container = $(this).closest('.poke-info');
+	container.find('.set-selector').val(setId).change();
 });
 
 function formatMovePool(moves) {
@@ -1061,7 +1196,21 @@ function createPokemon(pokeInfo) {
 		var name = pokeInfo.substring(0, pokeInfo.indexOf(" ("));
 		var setName = pokeInfo.substring(pokeInfo.indexOf("(") + 1, pokeInfo.lastIndexOf(")"));
 		var isRandoms = $("#randoms").prop("checked");
-		var set = isRandoms ? randdex[name] : setdex[name][setName];
+		var set;
+		if (isRandoms) {
+			if (name in setdex && setName in setdex[name]) {
+				set = setdex[name][setName];
+			} else if (RELUMI_MODE && isInGameTeamsMode()) {
+				set = randdex[name] && randdex[name][setName];
+			} else if (gen >= 8 && !RELUMI_MODE) {
+				set = randdex[name] && randdex[name][setName];
+			} else {
+				set = randdex[name];
+			}
+		} else {
+			set = setdex[name] && setdex[name][setName];
+		}
+		if (!set) return new calc.Pokemon(gen, name || '(No Pokemon)');
 
 		var ivs = {};
 		var evs = {};
@@ -1069,8 +1218,12 @@ function createPokemon(pokeInfo) {
 			var legacyStat = LEGACY_STATS[gen][i];
 			var stat = legacyStatToStat(legacyStat);
 
-			ivs[stat] = (gen >= 3 && set.ivs && typeof set.ivs[legacyStat] !== "undefined") ? set.ivs[legacyStat] : 31;
-			evs[stat] = (set.evs && typeof set.evs[legacyStat] !== "undefined") ? set.evs[legacyStat] : 0;
+			ivs[stat] = (gen >= 3 && set.ivs && typeof set.ivs[legacyStat] !== "undefined") ? set.ivs[legacyStat]
+				: (gen >= 3 && set.ivs && typeof set.ivs[stat] !== "undefined") ? set.ivs[stat]
+					: 31;
+			evs[stat] = (set.evs && typeof set.evs[legacyStat] !== "undefined") ? set.evs[legacyStat]
+				: (set.evs && typeof set.evs[stat] !== "undefined") ? set.evs[stat]
+					: 0;
 		}
 		var moveNames = set.moves;
 		if (isRandoms && (gen !== 8 && gen !== 1)) {
@@ -1511,9 +1664,7 @@ $(".gen").change(function () {
 	// declaring these variables with var here makes z moves not work; TODO
 	pokedex = calc.SPECIES[gen];
 	setdex = SETDEX[gen];
-	randdex = RELUMI_MODE
-		? ($("input:radio[name='format']:checked").val() === 'Doubles' ? RELUMI_RANDOM_DOUBLES_BATTLE : RELUMI_RANDOM_BATTLE)
-		: RANDDEX[gen];
+	randdex = RELUMI_MODE ? getRelumiRanddexForCurrentSource() : RANDDEX[gen];
 	if ('Aegislash' in randdex) randdex['Aegislash-Shield'] = randdex['Aegislash'];
 	typeChart = calc.TYPE_CHART[gen];
 	moves = calc.MOVES[gen];
@@ -1627,6 +1778,19 @@ function getSetOptions(sets) {
 		setsHolder = (RELUMI_MODE && $("#randoms").prop("checked")) ? randdex : pokedex;
 	}
 	var pokeNames = Object.keys(setsHolder);
+	if ($("#randoms").prop("checked")) {
+		var customSpecies = Object.keys(setdex || {}).filter(function (speciesName) {
+			var speciesSets = setdex[speciesName] || {};
+			var names = Object.keys(speciesSets);
+			for (var x = 0; x < names.length; x++) {
+				if (speciesSets[names[x]] && speciesSets[names[x]].isCustomSet) return true;
+			}
+			return false;
+		});
+		for (var c = 0; c < customSpecies.length; c++) {
+			if (pokeNames.indexOf(customSpecies[c]) === -1) pokeNames.push(customSpecies[c]);
+		}
+	}
 	pokeNames.sort();
 	var setOptions = [];
 	for (var i = 0; i < pokeNames.length; i++) {
@@ -1637,12 +1801,27 @@ function getSetOptions(sets) {
 		});
 		if ($("#randoms").prop("checked")) {
 			if (pokeName in randdex) {
-				if (RELUMI_MODE) {
+				if (RELUMI_MODE && isInGameTeamsMode()) {
+					var trainerSetNames = Object.keys(randdex[pokeName] || {});
+					for (var t = 0; t < trainerSetNames.length; t++) {
+						var trainerSetName = trainerSetNames[t];
+						var trainerSet = randdex[pokeName] && randdex[pokeName][trainerSetName];
+						if (!trainerSet || !Array.isArray(trainerSet.moves) || trainerSet.moves.length === 0) continue;
+						setOptions.push({
+							pokemon: pokeName,
+							set: trainerSetName,
+							text: pokeName + " (" + trainerSetName + ")",
+							id: pokeName + " (" + trainerSetName + ")",
+							searchText: pokeName + ' ' + trainerSetName
+						});
+					}
+				} else if (RELUMI_MODE) {
 					setOptions.push({
 						pokemon: pokeName,
 						set: 'Randoms Set',
 						text: pokeName + " (Randoms)",
-						id: pokeName + " (Randoms)"
+						id: pokeName + " (Randoms)",
+						searchText: pokeName + ' Randoms'
 					});
 				} else if (gen >= 8) {
 					// The Gen 8 and 9 randdex contains information for multiple Random Battles formats for each Pokemon.
@@ -1655,7 +1834,8 @@ function getSetOptions(sets) {
 							pokemon: pokeName + (rand === "Randoms" ? "" : " (" + rand.split(' ')[0] + ")"),
 							set: rand + ' Set',
 							text: pokeName + " (" + rand + ")",
-							id: pokeName + " (" + rand + ")"
+							id: pokeName + " (" + rand + ")",
+							searchText: pokeName + ' ' + rand
 						});
 					}
 				} else {
@@ -1663,7 +1843,23 @@ function getSetOptions(sets) {
 						pokemon: pokeName,
 						set: 'Randoms Set',
 						text: pokeName + " (Randoms)",
-						id: pokeName + " (Randoms)"
+						id: pokeName + " (Randoms)",
+						searchText: pokeName + ' Randoms'
+					});
+				}
+			}
+			if (pokeName in setdex) {
+				var randomModeSetNames = Object.keys(setdex[pokeName]);
+				for (var r = 0; r < randomModeSetNames.length; r++) {
+					var randomModeSetName = randomModeSetNames[r];
+					if (!setdex[pokeName][randomModeSetName] || !setdex[pokeName][randomModeSetName].isCustomSet) continue;
+					setOptions.push({
+						pokemon: pokeName,
+						set: randomModeSetName,
+						text: pokeName + " (" + randomModeSetName + ")",
+						id: pokeName + " (" + randomModeSetName + ")",
+						searchText: pokeName + ' ' + randomModeSetName,
+						isCustom: true
 					});
 				}
 			}
@@ -1825,7 +2021,9 @@ function loadDefaultLists() {
 	$(".set-selector").select2({
 		formatResult: function (object) {
 			if ($("#randoms").prop("checked")) {
-				return object.pokemon;
+				if (!object.set) return "<b>" + object.pokemon + "</b>";
+				var suffix = object.set === 'Randoms Set' ? 'Randoms' : object.set;
+				return "&nbsp;&nbsp;&nbsp;" + object.pokemon + " (" + suffix + ")" + (object.isCustom ? " [Custom]" : "");
 			} else {
 				return object.set ? ("&nbsp;&nbsp;&nbsp;" + object.set) : ("<b>" + object.text + "</b>");
 			}
@@ -1836,9 +2034,9 @@ function loadDefaultLists() {
 			var options = getSetOptions();
 			for (var i = 0; i < options.length; i++) {
 				var option = options[i];
-				var pokeName = option.pokemon.toUpperCase();
+				var searchHaystack = (option.searchText || (option.text + ' ' + option.pokemon)).toUpperCase();
 				if (!query.term || query.term.toUpperCase().split(" ").every(function (term) {
-					return pokeName.indexOf(term) === 0 || pokeName.indexOf("-" + term) >= 0 || pokeName.indexOf(" " + term) >= 0;
+					return searchHaystack.indexOf(term) >= 0;
 				})) {
 					if ($("#randoms").prop("checked")) {
 						if (option.id) results.push(option);

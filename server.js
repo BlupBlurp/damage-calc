@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 let calc;
 try {
 	calc = require("calc");
@@ -11,6 +12,7 @@ try {
 }
 const app = express();
 const PORT = Number(process.env.RELUMI_CALC_PORT || 3030);
+const DIST_DIR = path.join(__dirname, "dist");
 app.listen(PORT, () => {
 	console.log(`Server running on port ${PORT}`);
 });
@@ -36,5 +38,9 @@ app.get("/calculate",(req, res, next) => {
 	);
 	res.json(result);
 })
+
+app.get(['/', '/index.html'], (req, res) => {
+	res.sendFile(path.join(DIST_DIR, 'randoms.html'));
+});
 
 app.use(express.static('dist'))

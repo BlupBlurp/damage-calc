@@ -206,8 +206,13 @@ $(".mode").change(function () {
 	var params = new URLSearchParams(window.location.search);
 	params.set('mode', $(this).attr("id"));
 	var mode = params.get('mode');
+	var currentPath = window.location.pathname || '/';
 	if (mode === 'randoms') {
-		window.location.replace('randoms.html?' + params);
+		params.delete('setSource');
+		window.location.replace(currentPath + '?' + params);
+	} else if (mode === 'ingame') {
+		params.set('setSource', 'ingame');
+		window.location.replace(currentPath + '?' + params);
 	} else if (mode === 'one-vs-one') {
 		window.location.replace('index.html?' + params);
 	} else if (mode === "oms") {
@@ -224,17 +229,33 @@ $(".notation").change(function () {
 $(document).ready(function () {
 	var params = new URLSearchParams(window.location.search);
 	var m = params.get('mode');
+	var setSource = params.get('setSource');
+	if (setSource === 'ingame') {
+		$('#set-source-ingame').prop('checked', true);
+		$('#ingame').prop('checked', true);
+	} else {
+		$('#set-source-randoms').prop('checked', true);
+		$('#randoms').prop('checked', true);
+	}
+	if ($('#set-source-ingame').prop('checked')) {
+		$('#set-source-ingame').change();
+	} else {
+		$('#set-source-randoms').change();
+	}
 	if (m) {
-		if (m !== 'one-vs-one' && m !== 'randoms') {
+		if (m !== 'one-vs-one' && m !== 'randoms' && m !== 'ingame') {
 			window.location.replace('honkalculate.html?' + params);
 		} else {
 			if ($('#randoms').prop('checked')) {
 				if (m === 'one-vs-one') {
 					window.location.replace('index.html?' + params);
 				}
+				if (m === 'ingame') {
+					$('#set-source-ingame').prop('checked', true).change();
+				}
 			} else {
 				if (m === 'randoms') {
-					window.location.replace('randoms.html?' + params);
+					window.location.replace((window.location.pathname || '/') + '?' + params);
 				}
 			}
 		}

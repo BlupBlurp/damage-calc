@@ -60,7 +60,13 @@
         </span>
         <span class="modeSelection" aria-labelledby="selectModeInstruction" role="radiogroup" title="Select the calculator's mode of function.">
             <span class="visually-hidden" id="selectModeInstruction">Select the calculator's mode of function.</span>
-            <input class="mode visually-hidden" type="radio" name="mode" id="randoms" checked="checked" /><label class="btn btn-left btn-right btn-xwide" for="randoms">Random Battles</label>
+            <input class="mode visually-hidden" type="radio" name="mode" id="randoms" checked="checked" /><label class="btn btn-left" for="randoms">Random Battles</label>
+            <input class="mode visually-hidden" type="radio" name="mode" id="ingame" /><label class="btn btn-right" for="ingame">In-Game Teams</label>
+        </span>
+        <span class="sourceSelection hide" aria-labelledby="selectSourceInstruction" role="radiogroup" title="Select the random set source.">
+            <span class="sourceLabel" id="selectSourceInstruction">Set Source:</span>
+            <input class="set-source visually-hidden" type="radio" name="setSource" id="set-source-randoms" checked="checked" /><label class="btn btn-left" for="set-source-randoms">Random Battles</label>
+            <input class="set-source visually-hidden" type="radio" name="setSource" id="set-source-ingame" /><label class="btn btn-right" for="set-source-ingame">In-Game Teams</label>
         </span>
     </div>
     <hr />
@@ -131,6 +137,7 @@
         <fieldset class="poke-info" id="p1">
             <legend align="center">Pok&eacute;mon 1</legend>
             <input type="text" class="set-selector calc-trigger" />
+            <div class="trainer-team-strip hide"></div>
             <span id="importedSetsOptions" style="width:auto; display:none">
                 <input type="checkbox" id="importedSets" /> Only show imported sets <br />
                 <button id="clearSets">Clear Custom Sets</button>
@@ -1025,8 +1032,27 @@
                                 <label class="btn btn-xxwide" for="switchingR">Switching Out</label>
                             </div></td>
                         </tr>
+                        <tr>
+                            <td><div class="left" title="Export the leftmost Pok&eacute;mon set">
+                                <button id="exportL">Export</button>
+                            </div></td>
+                            <td><div class="right" title="Export the rightmost Pok&eacute;mon set">
+                                <button id="exportR">Export</button>
+                            </div></td>
+                        </tr>
                     </tbody>
                 </table>
+            </fieldset>
+        </div>
+        <div aria-label="Import team" role="region">
+            <fieldset class="poke-import">
+                <legend align="center">Import / Export</legend>
+                <div id="import-1_wrapper" class="dataTables_wrapper no-footer">
+                    <form class="import-team">
+                        <input class="import-name-text" value="Custom Set" />
+                        <textarea class="import-team-text"></textarea>
+                    </form>
+                </div>
             </fieldset>
         </div>
     </div>
@@ -1034,6 +1060,7 @@
         <fieldset class="poke-info" id="p2">
             <legend align="center">Pok&eacute;mon 2</legend>
             <input type="text" class="set-selector calc-trigger" />
+            <div class="trainer-team-strip hide"></div>
             <div class="info-group top">
                 <div>
                     <label>Type</label>
@@ -1593,6 +1620,7 @@
     <script type="text/javascript" src="./calc/data/species.js?"></script>
     <script type="text/javascript" src="./js/data/relumi-random-sets.js?"></script>
     <script type="text/javascript" src="./js/data/relumi-random-doubles-sets.js?"></script>
+    <script type="text/javascript" src="./js/data/relumi-ingame-teams.js?"></script>
     <script type="text/javascript" src="./js/data/relumi-dex-overrides.js?"></script>
     <script type="text/javascript" src="./calc/data/types.js?"></script>
     <script type="text/javascript" src="./calc/data/natures.js?"></script>

@@ -496,10 +496,17 @@ th {
     background: #ffff99;
 }
 
-.genSelection, .notationSelection, .modeSelection {
+.genSelection, .notationSelection, .modeSelection, .sourceSelection {
     display: inline-block;
     position: relative;
     top: -8px;
+}
+.sourceSelection {
+    margin-left: 0.75em;
+}
+.sourceSelection .sourceLabel {
+    font-weight: bold;
+    margin-right: 0.35em;
 }
 
 /* header */
@@ -546,6 +553,36 @@ th {
 }
 .set-selector {
     width: 100%;
+}
+.trainer-team-strip {
+    margin-top: 0.5em;
+    margin-bottom: 0.25em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.trainer-team-slot {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid #9aa5c2;
+    border-radius: 4px;
+    padding: 1px 4px;
+    background: #eef2fb;
+    color: #1f2f57;
+    cursor: pointer;
+}
+.trainer-team-slot:hover {
+    background: #dfe8fb;
+}
+.trainer-team-slot.current-team-slot {
+    border-color: #2a4f9b;
+    background: #d5e4ff;
+}
+.trainer-team-slot img {
+    width: 20px;
+    height: 20px;
+    image-rendering: pixelated;
 }
 .info-selectors select {
     width: 14em;
