@@ -10,8 +10,9 @@ try {
 	}
 }
 const app = express();
-app.listen(3000, () => {
-	console.log("Server running on port 3000");
+const PORT = Number(process.env.RELUMI_CALC_PORT || 3030);
+app.listen(PORT, () => {
+	console.log(`Server running on port ${PORT}`);
 });
 
 // parse application/json
