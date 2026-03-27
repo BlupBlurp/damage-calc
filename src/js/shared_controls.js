@@ -1831,7 +1831,7 @@ function getSetOptions(sets) {
 					for (var t = 0; t < trainerSetNames.length; t++) {
 						var trainerSetName = trainerSetNames[t];
 						var trainerSet = randdex[pokeName] && randdex[pokeName][trainerSetName];
-						if (!trainerSet || !Array.isArray(trainerSet.moves) || trainerSet.moves.length === 0) continue;
+						if (!trainerSet) continue;
 						setOptions.push({
 							pokemon: pokeName,
 							set: trainerSetName,

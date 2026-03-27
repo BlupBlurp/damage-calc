@@ -125,6 +125,42 @@ function getSpeciesByMonsAndForm(monsNo, formNo) {
   return base;
 }
 
+function getFallbackLevelUpMoves(species, level) {
+  if (!species?.id) return [];
+  const learnsetData = dex.species.getLearnsetData(species.id);
+  const learnset = learnsetData?.learnset;
+  if (!learnset) return [];
+
+  const maxLevel = Number(level) || 100;
+  const learnedAtLevel = [];
+
+  for (const [moveId, sources] of Object.entries(learnset)) {
+    if (!Array.isArray(sources) || !sources.length) continue;
+
+    let bestLevel = -1;
+    for (const source of sources) {
+      if (typeof source !== 'string') continue;
+      const match = source.match(/^(?:\d+)L(\d+)$/);
+      if (!match) continue;
+      const sourceLevel = Number(match[1]);
+      if (!Number.isFinite(sourceLevel) || sourceLevel > maxLevel) continue;
+      if (sourceLevel > bestLevel) bestLevel = sourceLevel;
+    }
+    if (bestLevel < 0) continue;
+
+    const move = dex.moves.get(moveId);
+    if (!move?.exists || !move.name) continue;
+    learnedAtLevel.push({name: move.name, level: bestLevel});
+  }
+
+  learnedAtLevel.sort((a, b) => {
+    if (a.level !== b.level) return a.level - b.level;
+    return a.name.localeCompare(b.name);
+  });
+
+  return learnedAtLevel.slice(-4).map(entry => entry.name);
+}
+
 function buildInGameTeams() {
   const trainerTable = JSON.parse(fs.readFileSync(trainerTablePath, 'utf8'));
   const abilityNames = extractIndexedNames(JSON.parse(fs.readFileSync(abilityNamesPath, 'utf8')).labelDataArray || []);
@@ -153,7 +189,7 @@ function buildInGameTeams() {
       const species = getSpeciesByMonsAndForm(monsNo, formNo);
       if (!species || !species.exists || !species.name) continue;
 
-      const moveList = [];
+      let moveList = [];
       for (let m = 1; m <= 4; m++) {
         const moveNo = Number(row[`P${slot}Waza${m}`] || 0);
         if (!moveNo) continue;
@@ -162,6 +198,9 @@ function buildInGameTeams() {
         const move = dex.moves.get(moveName);
         if (!move?.exists || !move.name || moveList.includes(move.name)) continue;
         moveList.push(move.name);
+      }
+      if (!moveList.length) {
+        moveList = getFallbackLevelUpMoves(species, Number(row[`P${slot}Level`] || 100));
       }
 
       const abilityNo = Number(row[`P${slot}Tokusei`] || 0);
