@@ -140,8 +140,9 @@ function buildInGameTeams() {
   const trainerTeams = {};
 
   for (const row of trainerTable.TrainerPoke || []) {
-    const trainerId = String(Number(row.ID || 0));
-    if (!trainerId || trainerId === '0') continue;
+    const trainerIdNumber = Number(row.ID || 0);
+    if (!trainerIdNumber || trainerIdNumber > 2000) continue;
+    const trainerId = String(trainerIdNumber);
 
     const members = [];
     for (let slot = 1; slot <= 6; slot++) {

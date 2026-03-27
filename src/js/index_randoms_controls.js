@@ -32,6 +32,9 @@ function performCalculations() {
 	var p2info = $("#p2");
 	var p1 = createPokemon(p1info);
 	var p2 = createPokemon(p2info);
+	if (!p1 || !p2 || !p1.name || !p2.name) {
+		return;
+	}
 	var p1field = createField();
 	var p2field = p1field.clone().swap();
 
@@ -230,12 +233,11 @@ $(document).ready(function () {
 	var params = new URLSearchParams(window.location.search);
 	var m = params.get('mode');
 	var setSource = params.get('setSource');
+	$('#randoms').prop('checked', true);
 	if (setSource === 'ingame') {
 		$('#set-source-ingame').prop('checked', true);
-		$('#ingame').prop('checked', true);
 	} else {
 		$('#set-source-randoms').prop('checked', true);
-		$('#randoms').prop('checked', true);
 	}
 	if ($('#set-source-ingame').prop('checked')) {
 		$('#set-source-ingame').change();
@@ -246,17 +248,14 @@ $(document).ready(function () {
 		if (m !== 'one-vs-one' && m !== 'randoms' && m !== 'ingame') {
 			window.location.replace('honkalculate.html?' + params);
 		} else {
-			if ($('#randoms').prop('checked')) {
-				if (m === 'one-vs-one') {
-					window.location.replace('index.html?' + params);
-				}
-				if (m === 'ingame') {
-					$('#set-source-ingame').prop('checked', true).change();
-				}
-			} else {
-				if (m === 'randoms') {
-					window.location.replace((window.location.pathname || '/') + '?' + params);
-				}
+			if (m === 'one-vs-one') {
+				window.location.replace('index.html?' + params);
+			}
+			if (m === 'ingame') {
+				$('#set-source-ingame').prop('checked', true).change();
+			}
+			if (m === 'randoms') {
+				$('#set-source-randoms').prop('checked', true).change();
 			}
 		}
 	}

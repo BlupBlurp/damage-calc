@@ -170,11 +170,10 @@ $("input:radio[name='format']").change(function () {
 });
 
 $("input:radio[name='setSource']").change(function () {
-	if (!(RELUMI_MODE && $("#randoms").prop("checked"))) return;
+	if (!RELUMI_MODE) return;
 	var isInGame = isInGameTeamsMode();
-	if ($('#ingame').length) {
-		$('#ingame').prop('checked', isInGame);
-		$('#randoms').prop('checked', !isInGame);
+	if ($('#randoms').length) {
+		$('#randoms').prop('checked', true);
 	}
 	var params = new URLSearchParams(window.location.search);
 	if (isInGame) {
@@ -186,6 +185,14 @@ $("input:radio[name='setSource']").change(function () {
 	}
 	if (window.history && window.history.replaceState) {
 		window.history.replaceState({}, document.title, window.location.pathname + '?' + params.toString());
+	}
+	if (isInGame) {
+		$('.poke-info .info-group.top > .gen-specific.g9').hide();
+		$('.pool').hide();
+	} else {
+		if (RELUMI_MODE) {
+			$('.poke-info .info-group.top > .gen-specific.g9').show();
+		}
 	}
 	randdex = getRelumiRanddexForCurrentSource();
 	loadDefaultLists();
@@ -731,10 +738,13 @@ $(".set-selector").change(function () {
 		var itemObj = pokeObj.find(".item");
 		var randset;
 		var selectedTrainerId = null;
+		var regSets = pokemonName in setdex && setName in setdex[pokemonName];
+		var inGameSource = false;
 		if ($("#randoms").prop("checked")) {
 			if (RELUMI_MODE && isInGameTeamsMode()) {
-				randset = randdex[pokemonName] && randdex[pokemonName][setName];
-				if ((!randset || !Array.isArray(randset.moves) || randset.moves.length === 0) && randdex[pokemonName]) {
+				inGameSource = true;
+				randset = regSets ? null : (randdex[pokemonName] && randdex[pokemonName][setName]);
+				if (!regSets && (!randset || !Array.isArray(randset.moves) || randset.moves.length === 0) && randdex[pokemonName]) {
 					var fallbackSetNames = Object.keys(randdex[pokemonName]);
 					for (var fs = 0; fs < fallbackSetNames.length; fs++) {
 						var candidateSet = randdex[pokemonName][fallbackSetNames[fs]];
@@ -763,11 +773,10 @@ $(".set-selector").change(function () {
 				selectedTrainerId = String(randset.trainerId);
 			}
 		}
-		var regSets = pokemonName in setdex && setName in setdex[pokemonName];
 		var isCustomRegSet = !!(regSets && setdex[pokemonName][setName] && setdex[pokemonName][setName].isCustomSet);
 		var activeRandset = isCustomRegSet ? null : randset;
 
-		if (activeRandset) {
+		if (activeRandset && !inGameSource) {
 			var listItems = activeRandset.items ? activeRandset.items : [];
 			var listAbilities = activeRandset.abilities ? activeRandset.abilities : [];
 			if (gen >= 3) $(this).closest('.poke-info').find(".ability-pool").show();
@@ -843,7 +852,9 @@ $(".set-selector").change(function () {
 			}
 			var setMoves = set.moves;
 			if (activeRandset) {
-				if (Array.isArray(activeRandset.moves) && activeRandset.moves.length) {
+				if (inGameSource && Array.isArray(activeRandset.moves)) {
+					setMoves = activeRandset.moves.slice();
+				} else if (Array.isArray(activeRandset.moves) && activeRandset.moves.length) {
 					setMoves = activeRandset.moves;
 				} else if (gen === 8 || gen === 1) {
 					setMoves = activeRandset.moves;
@@ -860,19 +871,29 @@ $(".set-selector").change(function () {
 					var fallback = RELUMI_RANDOM_BATTLE[pokemonName];
 					if (Array.isArray(fallback.moves) && fallback.moves.length) {
 						setMoves = fallback.moves.slice();
+						if (activeRandset.abilities && activeRandset.abilities.length === 0 && fallback.abilities && fallback.abilities.length) {
+							setSelectValueIfValid(abilityObj, fallback.abilities[0], abilityFallback);
+						}
+						if (activeRandset.items && activeRandset.items.length === 0 && fallback.items && fallback.items.length) {
+							setSelectValueIfValid(itemObj, fallback.items[0], "");
+						}
 					}
 				}
 			}
-			var moves = selectMovesFromRandomOptions(setMoves);
+			var moves = inGameSource
+				? [setMoves[0] || "(No Move)", setMoves[1] || "(No Move)", setMoves[2] || "(No Move)", setMoves[3] || "(No Move)"]
+				: selectMovesFromRandomOptions(setMoves);
 			for (i = 0; i < 4; i++) {
 				moveObj = pokeObj.find(".move" + (i + 1) + " select.move-selector");
 				moveObj.attr('data-prev', moveObj.val());
 				setSelectValueIfValid(moveObj, moves[i], "(No Move)");
 				moveObj.change();
 			}
-			if (activeRandset) {
+			if (activeRandset && !inGameSource) {
 				$(this).closest('.poke-info').find(".move-pool").show();
 				$(this).closest('.poke-info').find(".extraSetMoves").html(formatMovePool(setMoves));
+			} else if (inGameSource) {
+				$(this).closest('.poke-info').find(".pool").hide();
 			}
 		} else {
 			if (!RELUMI_MODE) {
@@ -1108,7 +1129,12 @@ $(".forme").change(function () {
 	}
 	var isRandoms = $("#randoms").prop("checked");
 	var pokemonSets = isRandoms ? randdex[pokemonName] : setdex[pokemonName];
-	var chosenSet = isRandoms && (gen < 8 || RELUMI_MODE) ? pokemonSets : pokemonSets && pokemonSets[setName];
+	var chosenSet;
+	if (isRandoms && RELUMI_MODE && isInGameTeamsMode()) {
+		chosenSet = pokemonSets && pokemonSets[setName];
+	} else {
+		chosenSet = isRandoms && (gen < 8 || RELUMI_MODE) ? pokemonSets : pokemonSets && pokemonSets[setName];
+	}
 	var greninjaSet = $(this).val().indexOf("Greninja") !== -1;
 	var isAltForme = $(this).val() !== pokemonName;
 	if (isAltForme && abilities.indexOf(altForme.abilities[0]) !== -1 && !greninjaSet) {
@@ -1687,7 +1713,6 @@ $(".gen").change(function () {
 	var itemOptions = getSelectOptions(items, true);
 	$("select.item").find("option").remove().end().append("<option value=\"\">(none)</option>" + itemOptions);
 	if (RELUMI_MODE) {
-		$(".poke-info .info-group.top > .gen-specific.g9").hide();
 		$(".tera-type-pool").hide();
 		$(".teraToggle").prop("checked", false);
 		$(".move-stellar").prop("checked", false);

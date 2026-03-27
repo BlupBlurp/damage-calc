@@ -559,18 +559,19 @@ th {
     margin-bottom: 0.25em;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
 }
 .trainer-team-slot {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     border: 1px solid #9aa5c2;
     border-radius: 4px;
-    padding: 1px 4px;
+    padding: 3px 7px;
     background: #eef2fb;
     color: #1f2f57;
     cursor: pointer;
+    font-size: 0.95em;
 }
 .trainer-team-slot:hover {
     background: #dfe8fb;
@@ -580,9 +581,15 @@ th {
     background: #d5e4ff;
 }
 .trainer-team-slot img {
-    width: 20px;
-    height: 20px;
+    width: 26px;
+    height: 26px;
     image-rendering: pixelated;
+}
+.trainer-team-slot span {
+    width: auto !important;
+    max-width: none;
+    display: inline;
+    white-space: nowrap;
 }
 .info-selectors select {
     width: 14em;
