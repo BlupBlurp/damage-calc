@@ -1,5 +1,14 @@
 const express = require("express");
-const calc = require("calc");
+let calc;
+try {
+	calc = require("calc");
+} catch {
+	try {
+		calc = require("@smogon/calc");
+	} catch {
+		calc = require("./calc/dist");
+	}
+}
 const app = express();
 app.listen(3000, () => {
 	console.log("Server running on port 3000");

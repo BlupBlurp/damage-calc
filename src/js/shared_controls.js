@@ -39,6 +39,10 @@ var LEGACY_STATS_RBY = ["hp", "at", "df", "sl", "sp"];
 var LEGACY_STATS_GSC = ["hp", "at", "df", "sa", "sd", "sp"];
 var LEGACY_STATS = [[], LEGACY_STATS_RBY, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC];
 var HIDDEN_POWER_REGEX = /Hidden Power (\w*)/;
+var RELUMI_MODE =
+	typeof RELUMI_RANDOM_BATTLE !== 'undefined' &&
+	typeof RELUMI_RANDOM_DOUBLES_BATTLE !== 'undefined' &&
+	typeof RELUMI_DEX_OVERRIDES !== 'undefined';
 
 var CALC_STATUS = {
 	'Healthy': '',
@@ -92,6 +96,15 @@ function validate(obj, min, max) {
 
 $("input:radio[name='format']").change(function () {
 	var gameType = $("input:radio[name='format']:checked").val();
+	if (RELUMI_MODE && $("#randoms").prop("checked")) {
+		randdex = gameType === 'Doubles' ? RELUMI_RANDOM_DOUBLES_BATTLE : RELUMI_RANDOM_BATTLE;
+		loadDefaultLists();
+		var firstSet = getFirstValidSetOption();
+		if (firstSet && firstSet.id) {
+			$(".set-selector").val(firstSet.id);
+			$(".set-selector").change();
+		}
+	}
 	if (gameType === 'Singles') {
 		$("input:checkbox[name='ruin']:checked").prop("checked", false);
 	}
@@ -479,11 +492,11 @@ $(".teraType").change(function () {
 var lockerMove = "";
 // auto-update move details on select
 $(".move-selector").change(function () {
-	var moveName = $(this).val();
+	var moveName = $(this).val() || '(No Move)';
 	var move = moves[moveName] || moves['(No Move)'];
 	var moveGroupObj = $(this).parent();
 	moveGroupObj.children(".move-bp").val(moveName === 'Present' ? 40 : move.bp);
-	var m = moveName.match(HIDDEN_POWER_REGEX);
+	var m = (typeof moveName === 'string') ? moveName.match(HIDDEN_POWER_REGEX) : null;
 	if (m) {
 		var pokeObj = $(this).closest(".poke-info");
 		var pokemon = createPokemon(pokeObj);
@@ -513,7 +526,7 @@ $(".move-selector").change(function () {
 		} else {
 			moveGroupObj.children(".move-bp").val(actual.power);
 		}
-	} else if (gen >= 2 && gen <= 6 && HIDDEN_POWER_REGEX.test($(this).attr('data-prev'))) {
+	} else if (gen >= 2 && gen <= 6 && HIDDEN_POWER_REGEX.test($(this).attr('data-prev') || '')) {
 		// If this selector was previously Hidden Power but now isn't, reset all IVs/DVs to max.
 		var pokeObj = $(this).closest(".poke-info");
 		for (var i = 0; i < LEGACY_STATS[gen].length; i++) {
@@ -522,7 +535,7 @@ $(".move-selector").change(function () {
 			pokeObj.find("." + legacyStat + " .dvs").val(15);
 		}
 	}
-	$(this).attr('data-prev', moveName);
+	$(this).attr('data-prev', moveName || '(No Move)');
 	moveGroupObj.children(".move-type").val(move.type);
 	moveGroupObj.children(".move-cat").val(move.category);
 	moveGroupObj.children(".move-crit").prop("checked", move.willCrit === true);
@@ -612,6 +625,9 @@ $(".set-selector").change(function () {
 		var isAutoTera =
 		(startsWith(pokemonName, "Ogerpon") && endsWith(pokemonName, "Tera")) ||
 		pokemonName === 'Terapagos-Stellar';
+		if (RELUMI_MODE) {
+			isAutoTera = false;
+		}
 		if (stickyMoves.getSelectedSide() === pokeObj.prop("id")) {
 			stickyMoves.clearStickyMove();
 		}
@@ -637,10 +653,14 @@ $(".set-selector").change(function () {
 		var randset;
 		if ($("#randoms").prop("checked")) {
 			if (gen >= 8) {
-				// The Gens 8 and 9 randdex contains information for multiple Random Battles formats for each Pokemon.
-				// Duraludon, for example, has data for Randoms, Doubles Randoms, and Baby Randoms.
-				// Therefore, the information for only the format chosen should be used.
-				randset = randdex[pokemonName][setName];
+				if (RELUMI_MODE) {
+					randset = randdex[pokemonName];
+				} else {
+					// The Gens 8 and 9 randdex contains information for multiple Random Battles formats for each Pokemon.
+					// Duraludon, for example, has data for Randoms, Doubles Randoms, and Baby Randoms.
+					// Therefore, the information for only the format chosen should be used.
+					randset = randdex[pokemonName][setName];
+				}
 			} else {
 				randset = randdex[pokemonName];
 			}
@@ -656,7 +676,7 @@ $(".set-selector").change(function () {
 			$(this).closest('.poke-info').find(".extraSetItems").text(listItems.join(', '));
 			if (gen !== 8 && gen !== 1) {
 				$(this).closest('.poke-info').find(".role-pool").show();
-				if (gen >= 9) $(this).closest('.poke-info').find(".tera-type-pool").show();
+				if (gen >= 9 && !RELUMI_MODE) $(this).closest('.poke-info').find(".tera-type-pool").show();
 			}
 			var listRoles = randset.roles ? Object.keys(randset.roles) : [];
 			$(this).closest('.poke-info').find(".extraSetRoles").text(listRoles.join(', '));
@@ -671,8 +691,10 @@ $(".set-selector").change(function () {
 					}
 				}
 			}
-			pokeObj.find(".teraType").val(listTeraTypes[0] || getForcedTeraType(pokemonName) || pokemon.types[0]);
-			$(this).closest('.poke-info').find(".extraSetTeraTypes").text(listTeraTypes.join(', '));
+			if (!RELUMI_MODE) {
+				pokeObj.find(".teraType").val(listTeraTypes[0] || getForcedTeraType(pokemonName) || pokemon.types[0]);
+				$(this).closest('.poke-info').find(".extraSetTeraTypes").text(listTeraTypes.join(', '));
+			}
 		} else {
 			$(this).closest('.poke-info').find(".ability-pool").hide();
 			$(this).closest('.poke-info').find(".item-pool").hide();
@@ -681,7 +703,7 @@ $(".set-selector").change(function () {
 		}
 		if (regSets || randset) {
 			var set = regSets ? correctHiddenPower(setdex[pokemonName][setName]) : randset;
-			if (regSets) {
+			if (regSets && !RELUMI_MODE) {
 				pokeObj.find(".teraType").val(set.teraType || getForcedTeraType(pokemonName) || pokemon.types[0]);
 			}
 			pokeObj.find(".level").val(set.level === undefined ? 100 : set.level);
@@ -729,7 +751,9 @@ $(".set-selector").change(function () {
 				$(this).closest('.poke-info').find(".extraSetMoves").html(formatMovePool(setMoves));
 			}
 		} else {
-			pokeObj.find(".teraType").val(getForcedTeraType(pokemonName) || pokemon.types[0]);
+			if (!RELUMI_MODE) {
+				pokeObj.find(".teraType").val(getForcedTeraType(pokemonName) || pokemon.types[0]);
+			}
 			pokeObj.find(".level").val(defaultLevel);
 			pokeObj.find(".hp .evs").val(0);
 			pokeObj.find(".hp .ivs").val(31);
@@ -741,7 +765,7 @@ $(".set-selector").change(function () {
 			}
 			pokeObj.find(".nature").val("Hardy");
 			setSelectValueIfValid(abilityObj, pokemon.abilities[0], "");
-			if (startsWith(pokemonName, "Ogerpon-") && !startsWith(pokemonName, "Ogerpon-Teal")) {
+			if (!RELUMI_MODE && startsWith(pokemonName, "Ogerpon-") && !startsWith(pokemonName, "Ogerpon-Teal")) {
 				itemObj.val(pokemonName.split("-")[1] + " Mask");
 			} else {
 				itemObj.val("");
@@ -796,6 +820,9 @@ $(".set-selector").change(function () {
 		});
 		abilityObj.change();
 		itemObj.change();
+		if (RELUMI_MODE) {
+			pokeObj.find(".teraToggle").prop("checked", false);
+		}
 	}
 });
 
@@ -946,7 +973,7 @@ $(".forme").change(function () {
 	}
 	var isRandoms = $("#randoms").prop("checked");
 	var pokemonSets = isRandoms ? randdex[pokemonName] : setdex[pokemonName];
-	var chosenSet = isRandoms && gen < 8 ? pokemonSets : pokemonSets && pokemonSets[setName];
+	var chosenSet = isRandoms && (gen < 8 || RELUMI_MODE) ? pokemonSets : pokemonSets && pokemonSets[setName];
 	var greninjaSet = $(this).val().indexOf("Greninja") !== -1;
 	var isAltForme = $(this).val() !== pokemonName;
 	if (isAltForme && abilities.indexOf(altForme.abilities[0]) !== -1 && !greninjaSet) {
@@ -994,6 +1021,7 @@ function correctHiddenPower(pokemon) {
 
 	var expected = calc.Stats.getHiddenPower(GENERATION, ivs);
 	for (var i = 0; i < pokemon.moves.length; i++) {
+		if (typeof pokemon.moves[i] !== 'string') continue;
 		var m = pokemon.moves[i].match(HIDDEN_POWER_REGEX);
 		if (!m) continue;
 		// The Hidden Power type matches the IVs provided so we don't need to do anything else
@@ -1107,6 +1135,7 @@ function createPokemon(pokeInfo) {
 		var gender = pokeInfo.find(".gender").val();
 		var isDynamaxed = pokeInfo.find(".max").prop("checked");
 		var teraType = pokeInfo.find(".teraToggle").is(":checked") ? pokeInfo.find(".teraType").val() : undefined;
+		if (RELUMI_MODE) teraType = undefined;
 		var opts = {
 			ability: ability,
 			item: item,
@@ -1178,7 +1207,7 @@ function checkRivalry(ability) {
 }
 
 function getMoveDetails(moveInfo, opts) {
-	var moveName = moveInfo.find("select.move-selector").val();
+	var moveName = moveInfo.find("select.move-selector").val() || '(No Move)';
 	var isZMove = gen > 6 && moveInfo.find("input.move-z").prop("checked");
 	var isCrit = moveInfo.find(".move-crit").prop("checked");
 	var isStellarFirstUse = moveInfo.find(".move-stellar").prop("checked");
@@ -1450,7 +1479,16 @@ var gen, genWasChanged, notation, pokedex, setdex, randdex, typeChart, moves, ab
 
 $(".gen").change(function () {
 	/*eslint-disable */
-	gen = ~~$(this).val() || 9;
+	gen = RELUMI_MODE ? 9 : (~~$(this).val() || 9);
+	if (RELUMI_MODE) {
+		$("#gen9").prop("checked", true);
+	}
+	if (RELUMI_MODE) {
+		calc.SPECIES[9] = RELUMI_DEX_OVERRIDES.species;
+		calc.MOVES[9] = RELUMI_DEX_OVERRIDES.moves;
+		calc.ABILITIES[9] = RELUMI_DEX_OVERRIDES.abilities;
+		calc.ITEMS[9] = RELUMI_DEX_OVERRIDES.items;
+	}
 	GENERATION = calc.Generations.get(gen);
 	var params = new URLSearchParams(window.location.search);
 	if (gen === 9) {
@@ -1473,7 +1511,9 @@ $(".gen").change(function () {
 	// declaring these variables with var here makes z moves not work; TODO
 	pokedex = calc.SPECIES[gen];
 	setdex = SETDEX[gen];
-	randdex = RANDDEX[gen];
+	randdex = RELUMI_MODE
+		? ($("input:radio[name='format']:checked").val() === 'Doubles' ? RELUMI_RANDOM_DOUBLES_BATTLE : RELUMI_RANDOM_BATTLE)
+		: RANDDEX[gen];
 	if ('Aegislash' in randdex) randdex['Aegislash-Shield'] = randdex['Aegislash'];
 	typeChart = calc.TYPE_CHART[gen];
 	moves = calc.MOVES[gen];
@@ -1495,9 +1535,19 @@ $(".gen").change(function () {
 	$("select.ability").find("option").remove().end().append("<option value=\"\">(other)</option>" + abilityOptions);
 	var itemOptions = getSelectOptions(items, true);
 	$("select.item").find("option").remove().end().append("<option value=\"\">(none)</option>" + itemOptions);
+	if (RELUMI_MODE) {
+		$(".poke-info .info-group.top > .gen-specific.g9").hide();
+		$(".tera-type-pool").hide();
+		$(".teraToggle").prop("checked", false);
+		$(".move-stellar").prop("checked", false);
+		$(".stellar-btn").hide();
+	}
 
-	$(".set-selector").val(getFirstValidSetOption().id);
-	$(".set-selector").change();
+	var firstValidSet = getFirstValidSetOption();
+	if (firstValidSet && firstValidSet.id) {
+		$(".set-selector").val(firstValidSet.id);
+		$(".set-selector").change();
+	}
 });
 
 function getFirstValidSetOption() {
@@ -1574,7 +1624,7 @@ function clearField() {
 function getSetOptions(sets) {
 	var setsHolder = sets;
 	if (setsHolder === undefined) {
-		setsHolder = pokedex;
+		setsHolder = (RELUMI_MODE && $("#randoms").prop("checked")) ? randdex : pokedex;
 	}
 	var pokeNames = Object.keys(setsHolder);
 	pokeNames.sort();
@@ -1587,7 +1637,14 @@ function getSetOptions(sets) {
 		});
 		if ($("#randoms").prop("checked")) {
 			if (pokeName in randdex) {
-				if (gen >= 8) {
+				if (RELUMI_MODE) {
+					setOptions.push({
+						pokemon: pokeName,
+						set: 'Randoms Set',
+						text: pokeName + " (Randoms)",
+						id: pokeName + " (Randoms)"
+					});
+				} else if (gen >= 8) {
 					// The Gen 8 and 9 randdex contains information for multiple Random Battles formats for each Pokemon.
 					// Duraludon, for example, has data for Randoms, Doubles Randoms, and Baby Randoms.
 					// Therefore, all of this information has to be populated within the set options.
@@ -1862,8 +1919,11 @@ $(document).ready(function () {
 			return text.toUpperCase().indexOf(term.toUpperCase()) === 0 || text.toUpperCase().indexOf(" " + term.toUpperCase()) >= 0;
 		}
 	});
-	$(".set-selector").val(getFirstValidSetOption().id);
-	$(".set-selector").change();
+	var firstValidSet = getFirstValidSetOption();
+	if (firstValidSet && firstValidSet.id) {
+		$(".set-selector").val(firstValidSet.id);
+		$(".set-selector").change();
+	}
 	$(".terrain-trigger").bind("change keyup", getTerrainEffects);
 });
 

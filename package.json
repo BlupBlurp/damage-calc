@@ -32,6 +32,8 @@
     "terser": "^5.16.5"
   },
   "scripts": {
+    "dev-relumi": "npm run sync-relumi-data && npm run build && node server.js",
+    "sync-relumi-data": "node scripts/generate-relumi-data.js",
     "lint": "subpkg run lint && eslint --cache src --ext js",
     "fix": "subpkg run fix && eslint --fix src --ext js",
     "compile": "subpkg run compile && node build view",
