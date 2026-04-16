@@ -53,6 +53,8 @@ jobs:
     # Match local server default route by serving Randoms UI at site root on Pages.
     - name: Set Pages default entry
       run: cp dist/randoms.html dist/index.html
+    - name: Add CNAME for custom domain
+      run: echo "calc.relumishowdown.dpdns.org" > dist/CNAME
     - name: Upload artifact for GitHub Pages
       uses: actions/upload-pages-artifact@v3
       with:
