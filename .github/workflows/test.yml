@@ -50,6 +50,9 @@ jobs:
     - run: npm install
     - name: Build
       run: node build
+    # Match local server default route by serving Randoms UI at site root on Pages.
+    - name: Set Pages default entry
+      run: cp dist/randoms.html dist/index.html
     - name: Upload artifact for GitHub Pages
       uses: actions/upload-pages-artifact@v3
       with:
