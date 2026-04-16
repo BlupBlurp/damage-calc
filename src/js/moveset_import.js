@@ -249,11 +249,11 @@ function addToDex(poke) {
 function getWritableSetdexMaps() {
 	var maps = [];
 
-	if (typeof setdex === 'object' && setdex) maps.push(setdex);
+	if (typeof window.setdex === 'object' && window.setdex) maps.push(window.setdex);
 
-	if (typeof SETDEX !== 'undefined' && Array.isArray(SETDEX)) {
-		for (var i = 0; i < SETDEX.length; i++) {
-			if (typeof SETDEX[i] === 'object' && SETDEX[i]) maps.push(SETDEX[i]);
+	if (typeof window.SETDEX !== 'undefined' && Array.isArray(window.SETDEX)) {
+		for (var i = 0; i < window.SETDEX.length; i++) {
+			if (typeof window.SETDEX[i] === 'object' && window.SETDEX[i]) maps.push(window.SETDEX[i]);
 		}
 	}
 

@@ -247,7 +247,7 @@ function getFirstTrainerSetIdFromOptions(trainerId) {
 }
 
 function applyInitialTrainerSelectionToRight(trainerId, attempt) {
-	if (!trainerId || (typeof RELUMI_MODE !== 'undefined' && !RELUMI_MODE)) return;
+	if (!trainerId || (typeof window.RELUMI_MODE !== 'undefined' && !window.RELUMI_MODE)) return;
 	var tries = attempt || 0;
 	if (tries > 20) return;
 

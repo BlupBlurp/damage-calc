@@ -40,13 +40,13 @@ var LEGACY_STATS_GSC = ["hp", "at", "df", "sa", "sd", "sp"];
 var LEGACY_STATS = [[], LEGACY_STATS_RBY, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC];
 var HIDDEN_POWER_REGEX = /Hidden Power (\w*)/;
 var RELUMI_MODE =
-	typeof RELUMI_RANDOM_BATTLE !== 'undefined' &&
-	typeof RELUMI_RANDOM_DOUBLES_BATTLE !== 'undefined' &&
-	typeof RELUMI_DEX_OVERRIDES !== 'undefined';
-var RELUMI_INGAME_MODE_AVAILABLE = typeof RELUMI_INGAME_TEAMS !== 'undefined';
+	typeof window.RELUMI_RANDOM_BATTLE !== 'undefined' &&
+	typeof window.RELUMI_RANDOM_DOUBLES_BATTLE !== 'undefined' &&
+	typeof window.RELUMI_DEX_OVERRIDES !== 'undefined';
+var RELUMI_INGAME_MODE_AVAILABLE = typeof window.RELUMI_INGAME_TEAMS !== 'undefined';
 
 function getRelumiRandomDexByBattleFormat() {
-	return $("input:radio[name='format']:checked").val() === 'Doubles' ? RELUMI_RANDOM_DOUBLES_BATTLE : RELUMI_RANDOM_BATTLE;
+	return $("input:radio[name='format']:checked").val() === 'Doubles' ? window.RELUMI_RANDOM_DOUBLES_BATTLE : window.RELUMI_RANDOM_BATTLE;
 }
 
 function isInGameTeamsMode() {
@@ -55,7 +55,7 @@ function isInGameTeamsMode() {
 
 function getRelumiRanddexForCurrentSource() {
 	if (!RELUMI_MODE) return RANDDEX[gen];
-	return isInGameTeamsMode() ? RELUMI_INGAME_TEAMS : getRelumiRandomDexByBattleFormat();
+	return isInGameTeamsMode() ? window.RELUMI_INGAME_TEAMS : getRelumiRandomDexByBattleFormat();
 }
 
 function getTrainerSpriteName(speciesName) {
@@ -71,12 +71,12 @@ function getTrainerSpriteName(speciesName) {
 function renderTrainerTeamStrip(pokeObj, trainerId, selectedSpecies) {
 	var strip = pokeObj.find('.trainer-team-strip');
 	if (!strip.length) return;
-	if (!isInGameTeamsMode() || !trainerId || typeof RELUMI_INGAME_TRAINER_TEAMS === 'undefined') {
+	if (!isInGameTeamsMode() || !trainerId || typeof window.RELUMI_INGAME_TRAINER_TEAMS === 'undefined') {
 		strip.empty().addClass('hide');
 		return;
 	}
 
-	var team = RELUMI_INGAME_TRAINER_TEAMS[String(trainerId)];
+	var team = window.RELUMI_INGAME_TRAINER_TEAMS[String(trainerId)];
 	if (!team || !team.length) {
 		strip.empty().addClass('hide');
 		return;
@@ -853,8 +853,8 @@ $(".set-selector").change(function () {
 						}
 					}
 				}
-				if ((!setMoves || !setMoves.length) && RELUMI_MODE && typeof RELUMI_RANDOM_BATTLE !== 'undefined' && RELUMI_RANDOM_BATTLE[pokemonName]) {
-					var fallback = RELUMI_RANDOM_BATTLE[pokemonName];
+				if ((!setMoves || !setMoves.length) && RELUMI_MODE && typeof window.RELUMI_RANDOM_BATTLE !== 'undefined' && window.RELUMI_RANDOM_BATTLE[pokemonName]) {
+					var fallback = window.RELUMI_RANDOM_BATTLE[pokemonName];
 					if (Array.isArray(fallback.moves) && fallback.moves.length) {
 						setMoves = fallback.moves.slice();
 						if (activeRandset.abilities && activeRandset.abilities.length === 0 && fallback.abilities && fallback.abilities.length) {
@@ -866,9 +866,9 @@ $(".set-selector").change(function () {
 					}
 				}
 			}
-			var moves = inGameSource
-				? [setMoves[0] || "(No Move)", setMoves[1] || "(No Move)", setMoves[2] || "(No Move)", setMoves[3] || "(No Move)"]
-				: selectMovesFromRandomOptions(setMoves);
+			var moves = inGameSource ?
+				[setMoves[0] || "(No Move)", setMoves[1] || "(No Move)", setMoves[2] || "(No Move)", setMoves[3] || "(No Move)"] :
+				selectMovesFromRandomOptions(setMoves);
 			for (i = 0; i < 4; i++) {
 				moveObj = pokeObj.find(".move" + (i + 1) + " select.move-selector");
 				moveObj.attr('data-prev', moveObj.val());
@@ -1230,12 +1230,16 @@ function createPokemon(pokeInfo) {
 			var legacyStat = LEGACY_STATS[gen][i];
 			var stat = legacyStatToStat(legacyStat);
 
-			ivs[stat] = (gen >= 3 && set.ivs && typeof set.ivs[legacyStat] !== "undefined") ? set.ivs[legacyStat]
-				: (gen >= 3 && set.ivs && typeof set.ivs[stat] !== "undefined") ? set.ivs[stat]
-					: 31;
-			evs[stat] = (set.evs && typeof set.evs[legacyStat] !== "undefined") ? set.evs[legacyStat]
-				: (set.evs && typeof set.evs[stat] !== "undefined") ? set.evs[stat]
-					: 0;
+			ivs[stat] = (gen >= 3 && set.ivs && typeof set.ivs[legacyStat] !== "undefined") ?
+				set.ivs[legacyStat] :
+				(gen >= 3 && set.ivs && typeof set.ivs[stat] !== "undefined") ?
+					set.ivs[stat] :
+					31;
+			evs[stat] = (set.evs && typeof set.evs[legacyStat] !== "undefined") ?
+				set.evs[legacyStat] :
+				(set.evs && typeof set.evs[stat] !== "undefined") ?
+					set.evs[stat] :
+					0;
 		}
 		var moveNames = set.moves;
 		if (isRandoms && (gen !== 8 && gen !== 1)) {
