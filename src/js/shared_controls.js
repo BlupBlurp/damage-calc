@@ -727,7 +727,17 @@ $(".set-selector").change(function () {
 		var regSets = pokemonName in setdex && setName in setdex[pokemonName];
 		var inGameSource = false;
 		if ($("#randoms").prop("checked")) {
-			if (RELUMI_MODE && isInGameTeamsMode()) {
+			// Avoid loading active random sets or trainer presets for Blank Set
+			if (setName === "Blank Set") {
+				randset = null;
+				if (RELUMI_MODE && isInGameTeamsMode()) {
+					inGameSource = true;
+					var existingTrainerId = pokeObj.find('.trainer-team-slot').first().attr('data-trainer-id');
+					if (existingTrainerId) {
+						selectedTrainerId = existingTrainerId;
+					}
+				}
+			} else if (RELUMI_MODE && isInGameTeamsMode()) {
 				inGameSource = true;
 				randset = regSets ? null : (randdex[pokemonName] && randdex[pokemonName][setName]);
 				if (!regSets && (!randset || !Array.isArray(randset.moves) || randset.moves.length === 0) && randdex[pokemonName]) {
@@ -1787,12 +1797,36 @@ function clearField() {
 	$("input:checkbox[name='terrain']").prop("checked", false);
 }
 
+// List of CAP (Create-A-Pokemon) species to filter them out of the calculator
+var CAP_SPECIES = [
+	"syclar", "syclant", "revenankh", "embirch", "flarelm", "pyroak", "breezi", "fidgit",
+	"rebble", "tactite", "stratagem", "privatyke", "arghonaut", "nohface", "kitsunoh", "monohm",
+	"duohm", "cyclohm", "dorsoil", "colossoil", "protowatt", "krilowatt", "voodoll", "voodoom",
+	"scratchet", "tomohawk", "necturine", "necturna", "mollux", "cupra", "argalis", "aurumoth",
+	"brattler", "malaconda", "cawdet", "cawmodore", "volkritter", "volkraken", "snugglow", "plasmanta",
+	"floatoy", "caimanoe", "naviathan", "crucibelle", "crucibellemega", "pluffle", "kerfluffle", "pajantom",
+	"mumbao", "jumbao", "fawnifer", "electrelk", "caribolt", "smogecko", "smoguana", "smokomodo",
+	"swirlpool", "coribalis", "snaelstrom", "justyke", "equilibra", "solotl", "astrolotl", "miasmite",
+	"miasmaw", "chromera", "venomicon", "venomiconepilogue", "saharascal", "saharaja", "ababo", "scattervein",
+	"hemogoblin", "cresceidon"
+];
+
+function isCAP(pokeName) {
+	if (!pokeName) return false;
+	var id = pokeName.toLowerCase().replace(/[^a-z0-9]/g, '');
+	return CAP_SPECIES.indexOf(id) !== -1;
+}
+
 function getSetOptions(sets) {
 	var setsHolder = sets;
 	if (setsHolder === undefined) {
-		setsHolder = (RELUMI_MODE && $("#randoms").prop("checked")) ? randdex : pokedex;
+		// Use pokedex by default to allow Blank Set selection for all Gen 1-9 Pokémon
+		setsHolder = pokedex;
 	}
-	var pokeNames = Object.keys(setsHolder);
+	// Filter out non-official CAP Pokémon from the list of species
+	var pokeNames = Object.keys(setsHolder).filter(function (name) {
+		return !isCAP(name);
+	});
 	if ($("#randoms").prop("checked")) {
 		var customSpecies = Object.keys(setdex || {}).filter(function (speciesName) {
 			var speciesSets = setdex[speciesName] || {};
@@ -1877,6 +1911,16 @@ function getSetOptions(sets) {
 						isCustom: true
 					});
 				}
+			}
+			// Add Blank Set option under Relumi random battles and in-game teams
+			if (RELUMI_MODE) {
+				setOptions.push({
+					pokemon: pokeName,
+					set: "Blank Set",
+					text: pokeName + " (Blank Set)",
+					id: pokeName + " (Blank Set)",
+					searchText: pokeName + ' Blank Set'
+				});
 			}
 		} else {
 			if (pokeName in setdex) {
