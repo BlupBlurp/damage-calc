@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Relumi Team Raw</title>
+    <style>
+        body {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            margin: 1.25rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #fff;
+            color: #111;
+        }
+        @media (prefers-color-scheme: dark) {
+            body { background: #1e1e1e; color: #e8e8e8; }
+        }
+    </style>
+</head>
+<body><pre id="team-export"></pre>
+<script type="text/javascript" src="./js/vendor/url-search-params-0.1.2.min.js"></script>
+<script type="text/javascript" src="./js/data/relumi-ingame-teams.js"></script>
+<script type="text/javascript" src="./js/relumi-team-export.js"></script>
+<script type="text/javascript">
+(function () {
+	function getTrainerIdFromUrl() {
+		var params = new URLSearchParams(window.location.search);
+		return params.get('trainerId') || params.get('trainerID') || params.get('trainer') || params.get('teamId');
+	}
+
+	if (typeof window.initRelumiTeamExportData === 'function') {
+		window.initRelumiTeamExportData();
+	}
+
+	var trainerId = getTrainerIdFromUrl();
+	var pre = document.getElementById('team-export');
+	if (!trainerId) {
+		pre.textContent = 'Missing trainerId query parameter.';
+		document.title = 'Team Export — Error';
+		return;
+	}
+
+	var text = typeof window.exportInGameTeamText === 'function' ?
+		window.exportInGameTeamText(String(trainerId).trim()) : '';
+	if (!text) {
+		pre.textContent = 'No team found for trainer ID ' + trainerId + '.';
+		document.title = 'Team Export — Not Found';
+		return;
+	}
+
+	pre.textContent = text;
+	document.title = 'Trainer ' + trainerId + ' — Team Export';
+})();
+</script>
+</body>
+</html>

@@ -559,32 +559,48 @@ th {
     margin-bottom: 0.25em;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
+    padding: 6px;
+    background: rgba(238, 242, 251, 0.6);
+    border: 1px solid rgba(154, 165, 194, 0.35);
+    border-radius: 6px;
 }
 .trainer-team-slot {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    border: 1px solid #9aa5c2;
-    border-radius: 4px;
-    padding: 3px 7px;
-    background: #eef2fb;
+    gap: 5px;
+    border: 1.5px solid transparent;
+    border-radius: 6px;
+    padding: 3px 8px 3px 4px;
+    background: linear-gradient(to bottom, #f6f8fd, #e8edf8);
     color: #1f2f57;
     cursor: pointer;
-    font-size: 0.95em;
+    font-size: 0.92em;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(42, 79, 155, 0.08);
 }
 .trainer-team-slot:hover {
-    background: #dfe8fb;
+    background: linear-gradient(to bottom, #eaf0fd, #dce4f7);
+    border-color: rgba(42, 79, 155, 0.3);
+    box-shadow: 0 2px 6px rgba(42, 79, 155, 0.13);
 }
 .trainer-team-slot.current-team-slot {
-    border-color: #2a4f9b;
-    background: #d5e4ff;
+    border-color: #4a7ad8;
+    background: linear-gradient(to bottom, #d5e4ff, #c2d6f8);
+    box-shadow: 0 0 0 1.5px rgba(74, 122, 216, 0.25), 0 2px 4px rgba(42, 79, 155, 0.12);
 }
 .trainer-team-slot img {
-    width: 26px;
-    height: 26px;
-    image-rendering: pixelated;
+    width: 50px;
+    height: 50px;
+    image-rendering: auto;
+    transition: transform 0.15s ease;
 }
+/*
+.trainer-team-slot:hover img {
+    transform: scale(1.15);
+}
+*/
 .trainer-team-slot span {
     width: auto !important;
     max-width: none;

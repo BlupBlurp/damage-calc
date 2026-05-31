@@ -45,6 +45,10 @@ var RELUMI_MODE =
 	typeof window.RELUMI_DEX_OVERRIDES !== 'undefined';
 var RELUMI_INGAME_MODE_AVAILABLE = typeof window.RELUMI_INGAME_TEAMS !== 'undefined';
 
+if (typeof window.initRelumiTeamExportData === 'function') {
+	window.initRelumiTeamExportData();
+}
+
 function getRelumiRandomDexByBattleFormat() {
 	return $("input:radio[name='format']:checked").val() === 'Doubles' ? window.RELUMI_RANDOM_DOUBLES_BATTLE : window.RELUMI_RANDOM_BATTLE;
 }
@@ -60,34 +64,167 @@ function getRelumiRanddexForCurrentSource() {
 
 function getTrainerSpriteName(speciesName) {
 	if (!speciesName) return '';
+	// PS gen5 sprites use lowercase IDs with hyphens between forme segments (e.g. avalugg-hisui)
 	return speciesName.toLowerCase()
 		.replace(/♂/g, 'm')
 		.replace(/♀/g, 'f')
-		.replace(/[^a-z0-9\s-]/g, '')
-		.replace(/\s+/g, '')
-		.replace(/-+/g, '');
+		.replace(/[^a-z0-9-]/g, '')
+		.replace(/--+/g, '-')
+		.replace(/^-|-$/g, '');
+}
+
+function getTrainerTeamRoster(trainerId) {
+	if (!trainerId) return null;
+	var id = String(trainerId);
+	if (typeof window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS !== 'undefined' &&
+		window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[id]) {
+		return window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[id];
+	}
+	if (typeof window.RELUMI_INGAME_TRAINER_TEAMS !== 'undefined' &&
+		window.RELUMI_INGAME_TRAINER_TEAMS[id]) {
+		return window.RELUMI_INGAME_TRAINER_TEAMS[id];
+	}
+	return null;
+}
+
+function registerCustomInGameTeam(teamId, roster) {
+	if (!RELUMI_MODE || !teamId || !roster || !roster.length) return;
+	if (!window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS) {
+		window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS = {};
+	}
+	var teamRoster = roster.slice();
+	window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[String(teamId)] = teamRoster;
+
+	if (!localStorage.customsets) return;
+	var customsets = JSON.parse(localStorage.customsets);
+	for (var species in customsets) {
+		for (var setKey in customsets[species]) {
+			var set = customsets[species][setKey];
+			if (!set || !set.isCustomSet || String(set.trainerId) !== String(teamId)) continue;
+			set.team = teamRoster.slice();
+		}
+	}
+	localStorage.customsets = JSON.stringify(customsets);
+	if (typeof window.updateDex === 'function') window.updateDex(customsets);
+}
+
+function updateExportTeamButtonVisibility() {
+	if (!$('#exportTeamR').length) return;
+	var visible = RELUMI_MODE && isInGameTeamsMode();
+	$('#exportTeamR').toggle(visible);
+}
+
+function getActiveInGameTrainerId(pokeObj) {
+	if (!isInGameTeamsMode()) return null;
+	var fromStrip = pokeObj.find('.trainer-team-slot').first().attr('data-trainer-id');
+	if (fromStrip) return String(fromStrip);
+	var fullSetName = pokeObj.find('.set-selector').val();
+	if (!fullSetName || fullSetName.indexOf(' (') === -1) return null;
+	var pokemonName = fullSetName.substring(0, fullSetName.indexOf(' ('));
+	var setName = fullSetName.substring(fullSetName.indexOf('(') + 1, fullSetName.lastIndexOf(')'));
+	if (setName === 'Blank Set') return null;
+	if (setdex[pokemonName] && setdex[pokemonName][setName] && setdex[pokemonName][setName].trainerId) {
+		return String(setdex[pokemonName][setName].trainerId);
+	}
+	if (typeof randdex !== 'undefined' && randdex[pokemonName] && randdex[pokemonName][setName] &&
+		randdex[pokemonName][setName].trainerId) {
+		return String(randdex[pokemonName][setName].trainerId);
+	}
+	if (getTrainerTeamRoster(setName)) return setName;
+	return null;
+}
+
+function rebuildCustomInGameTrainerTeamsFromStorage() {
+	if (!RELUMI_MODE) return;
+	window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS = {};
+	if (!localStorage.customsets) return;
+
+	var customsets = JSON.parse(localStorage.customsets);
+	var teamsById = {};
+	for (var species in customsets) {
+		for (var setKey in customsets[species]) {
+			var set = customsets[species][setKey];
+			if (!set || !set.isCustomSet) continue;
+			var teamId = set.trainerId ? String(set.trainerId) : String(setKey).replace(/-\d+$/, '');
+			if (!teamsById[teamId]) teamsById[teamId] = [];
+			teamsById[teamId].push({
+				species: species,
+				slot: set.teamSlot || teamsById[teamId].length + 1
+			});
+		}
+	}
+	var teamIds = Object.keys(teamsById);
+	for (var t = 0; t < teamIds.length; t++) {
+		var members = teamsById[teamIds[t]];
+		members.sort(function (a, b) { return a.slot - b.slot; });
+		var roster = [];
+		for (var m = 0; m < members.length; m++) roster.push(members[m].species);
+		if (roster.length) {
+			window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[teamIds[t]] = roster;
+		}
+	}
+}
+
+function getTeamMemberSetId(speciesName, trainerId, slotIndex) {
+	var id = String(trainerId);
+	var occurrence = slotIndex || 0;
+
+	if (setdex[speciesName]) {
+		var customMatches = [];
+		for (var setKey in setdex[speciesName]) {
+			var set = setdex[speciesName][setKey];
+			if (!set || !set.isCustomSet) continue;
+			if (String(set.trainerId) !== id && setKey !== id && !startsWith(setKey, id + '-')) continue;
+			customMatches.push({key: setKey, slot: set.teamSlot || customMatches.length + 1});
+		}
+		if (customMatches.length) {
+			customMatches.sort(function (a, b) {return a.slot - b.slot;});
+			var customPick = customMatches[occurrence] || customMatches[0];
+			return speciesName + ' (' + customPick.key + ')';
+		}
+	}
+
+	if (typeof randdex !== 'undefined' && randdex[speciesName]) {
+		var trainerKeys = [];
+		for (var trainerKey in randdex[speciesName]) {
+			if (trainerKey === id || startsWith(trainerKey, id + '-')) {
+				trainerKeys.push(trainerKey);
+			}
+		}
+		trainerKeys.sort();
+		if (trainerKeys[occurrence]) return speciesName + ' (' + trainerKeys[occurrence] + ')';
+		if (trainerKeys[0]) return speciesName + ' (' + trainerKeys[0] + ')';
+	}
+
+	return speciesName + ' (' + id + ')';
 }
 
 function renderTrainerTeamStrip(pokeObj, trainerId, selectedSpecies) {
 	var strip = pokeObj.find('.trainer-team-strip');
 	if (!strip.length) return;
-	if (!isInGameTeamsMode() || !trainerId || typeof window.RELUMI_INGAME_TRAINER_TEAMS === 'undefined') {
+	if (!isInGameTeamsMode() || !trainerId) {
 		strip.empty().addClass('hide');
 		return;
 	}
 
-	var team = window.RELUMI_INGAME_TRAINER_TEAMS[String(trainerId)];
+	var team = getTrainerTeamRoster(trainerId);
 	if (!team || !team.length) {
 		strip.empty().addClass('hide');
 		return;
 	}
 
 	var html = '';
+	var speciesOccurrence = {};
 	for (var i = 0; i < team.length; i++) {
 		var memberName = team[i];
+		var occurrence = speciesOccurrence[memberName] || 0;
+		speciesOccurrence[memberName] = occurrence + 1;
+		var setId = getTeamMemberSetId(memberName, trainerId, occurrence);
 		var spriteName = getTrainerSpriteName(memberName);
 		var isCurrent = memberName === selectedSpecies;
-		html += '<button type="button" class="trainer-team-slot' + (isCurrent ? ' current-team-slot' : '') + '" data-trainer-id="' + trainerId + '" data-species="' + memberName + '" title="' + memberName + '">';
+		html += '<button type="button" class="trainer-team-slot' + (isCurrent ? ' current-team-slot' : '') +
+			'" data-trainer-id="' + trainerId + '" data-species="' + memberName +
+			'" data-set-id="' + setId + '" title="' + memberName + '">';
 		html += '<img alt="' + memberName + '" src="https://play.pokemonshowdown.com/sprites/gen5/' + spriteName + '.png" />';
 		html += '<span>' + memberName + '</span>';
 		html += '</button>';
@@ -182,6 +319,10 @@ $("input:radio[name='setSource']").change(function () {
 	} else {
 		params.set('mode', 'randoms');
 		params.delete('setSource');
+		params.delete('trainerId');
+		params.delete('trainerID');
+		params.delete('trainer');
+		params.delete('teamId');
 	}
 	if (window.history && window.history.replaceState) {
 		window.history.replaceState({}, document.title, window.location.pathname + '?' + params.toString());
@@ -191,7 +332,10 @@ $("input:radio[name='setSource']").change(function () {
 		$('.pool').hide();
 	} else {
 		$('.poke-info .info-group.top > .gen-specific.g9').hide();
+		// Restore pool visibility when switching back to Random Battles
+		$('.pool').show();
 	}
+	updateExportTeamButtonVisibility();
 	randdex = getRelumiRanddexForCurrentSource();
 	loadDefaultLists();
 	var firstSet = getFirstValidSetOption();
@@ -730,12 +874,9 @@ $(".set-selector").change(function () {
 			// Avoid loading active random sets or trainer presets for Blank Set
 			if (setName === "Blank Set") {
 				randset = null;
+				selectedTrainerId = null;
 				if (RELUMI_MODE && isInGameTeamsMode()) {
 					inGameSource = true;
-					var existingTrainerId = pokeObj.find('.trainer-team-slot').first().attr('data-trainer-id');
-					if (existingTrainerId) {
-						selectedTrainerId = existingTrainerId;
-					}
 				}
 			} else if (RELUMI_MODE && isInGameTeamsMode()) {
 				inGameSource = true;
@@ -752,7 +893,9 @@ $(".set-selector").change(function () {
 						}
 					}
 				}
-				selectedTrainerId = randset && randset.trainerId ? String(randset.trainerId) : setName;
+				selectedTrainerId = randset && randset.trainerId ? String(randset.trainerId) :
+					(regSets && setdex[pokemonName][setName] && setdex[pokemonName][setName].trainerId ?
+						String(setdex[pokemonName][setName].trainerId) : setName);
 			} else if (gen >= 8) {
 				if (RELUMI_MODE) {
 					randset = randdex[pokemonName];
@@ -962,6 +1105,16 @@ $(".set-selector").change(function () {
 		abilityObj.change();
 		itemObj.change();
 		renderTrainerTeamStrip(pokeObj, selectedTrainerId, pokemonName);
+		// Sync trainerId URL when the opponent selects an in-game trainer set
+		if (RELUMI_MODE && isInGameTeamsMode() && selectedTrainerId && pokeObj.prop('id') === 'p2') {
+			var urlParams = new URLSearchParams(window.location.search);
+			urlParams.set('mode', 'ingame');
+			urlParams.set('setSource', 'ingame');
+			urlParams.set('trainerId', selectedTrainerId);
+			if (window.history && window.history.replaceState) {
+				window.history.replaceState({}, document.title, window.location.pathname + '?' + urlParams.toString());
+			}
+		}
 		if (RELUMI_MODE) {
 			pokeObj.find(".teraToggle").prop("checked", false);
 		}
@@ -970,10 +1123,13 @@ $(".set-selector").change(function () {
 
 $(document).on('click', '.trainer-team-slot', function () {
 	if (!isInGameTeamsMode()) return;
-	var trainerId = String($(this).attr('data-trainer-id') || '');
-	var speciesName = String($(this).attr('data-species') || '');
-	if (!trainerId || !speciesName) return;
-	var setId = speciesName + ' (' + trainerId + ')';
+	var setId = String($(this).attr('data-set-id') || '');
+	if (!setId) {
+		var trainerId = String($(this).attr('data-trainer-id') || '');
+		var speciesName = String($(this).attr('data-species') || '');
+		if (!trainerId || !speciesName) return;
+		setId = getTeamMemberSetId(speciesName, trainerId, 0);
+	}
 	var container = $(this).closest('.poke-info');
 	setSetSelectorAndSync(container, setId);
 });
@@ -1967,7 +2123,19 @@ function setSetSelectorAndSync(pokeObjOrSelector, setId) {
 	selector.val(setId);
 	if (selector.data('select2')) {
 		var selectedOption = getSetOptionById(setId);
-		if (selectedOption) selector.select2('data', selectedOption);
+		if (!selectedOption) {
+			var pokemonName = setId.substring(0, setId.indexOf(' ('));
+			var setName = setId.substring(setId.indexOf('(') + 1, setId.lastIndexOf(')'));
+			selectedOption = {
+				pokemon: pokemonName,
+				set: setName,
+				text: setId,
+				id: setId,
+				searchText: pokemonName + ' ' + setName,
+				isCustom: true
+			};
+		}
+		selector.select2('data', selectedOption);
 	}
 	selector.change();
 	return true;
@@ -2184,7 +2352,16 @@ function loadCustomList(id) {
 	});
 }
 
+window.isInGameTeamsMode = isInGameTeamsMode;
+window.getTrainerTeamRoster = getTrainerTeamRoster;
+window.getActiveInGameTrainerId = getActiveInGameTrainerId;
+window.registerCustomInGameTeam = registerCustomInGameTeam;
+window.rebuildCustomInGameTrainerTeamsFromStorage = rebuildCustomInGameTrainerTeamsFromStorage;
+window.updateExportTeamButtonVisibility = updateExportTeamButtonVisibility;
+
 $(document).ready(function () {
+	rebuildCustomInGameTrainerTeamsFromStorage();
+	updateExportTeamButtonVisibility();
 	var params = new URLSearchParams(window.location.search);
 	var g = GENERATION[params.get('gen')] || 9;
 	$("#gen" + g).prop("checked", true);

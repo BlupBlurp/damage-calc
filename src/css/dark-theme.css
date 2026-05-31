@@ -204,3 +204,24 @@ input.select2-input {
 .locked-weather:checked + .btn:hover {
     background: #00867b;
 }
+
+/* Trainer team strip dark mode */
+.trainer-team-strip {
+    background: rgba(53, 53, 53, 0.5);
+    border-color: rgba(80, 85, 91, 0.4);
+}
+.trainer-team-slot {
+    background: linear-gradient(to bottom, #3a3d45, #2b2c31);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.trainer-team-slot:hover {
+    background: linear-gradient(to bottom, #4a4e57, #383b42);
+    border-color: rgba(88, 151, 251, 0.35);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.trainer-team-slot.current-team-slot {
+    border-color: #5897fb;
+    background: linear-gradient(to bottom, #2e3a55, #232e51);
+    box-shadow: 0 0 0 1.5px rgba(88, 151, 251, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+}

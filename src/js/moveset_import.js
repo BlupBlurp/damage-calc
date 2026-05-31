@@ -82,6 +82,28 @@ $("#exportR").click(function () {
 	ExportPokemon($("#p2"));
 });
 
+function ExportInGameTeam(pokeInfo) {
+	if (typeof window.getActiveInGameTrainerId !== 'function' || typeof window.exportInGameTeamText !== 'function') {
+		alert('In-game team export is not available.');
+		return;
+	}
+	var trainerId = window.getActiveInGameTrainerId(pokeInfo);
+	if (!trainerId) {
+		alert('Select an in-game trainer team first.');
+		return;
+	}
+	var text = window.exportInGameTeamText(trainerId);
+	if (!text) {
+		alert('Could not export this trainer team.');
+		return;
+	}
+	$('textarea.import-team-text').val(text);
+}
+
+$("#exportTeamR").click(function () {
+	ExportInGameTeam($('#p2'));
+});
+
 function serialize(array, separator) {
 	var text = "";
 	for (var i = 0; i < array.length; i++) {
@@ -227,6 +249,9 @@ function addToDex(poke) {
 	dexObject.gender = poke.gender;
 	dexObject.item = poke.item;
 	dexObject.isCustomSet = poke.isCustomSet;
+	if (poke.trainerId) dexObject.trainerId = poke.trainerId;
+	if (poke.team) dexObject.team = poke.team;
+	if (poke.teamSlot) dexObject.teamSlot = poke.teamSlot;
 	var customsets;
 	if (localStorage.customsets) {
 		customsets = JSON.parse(localStorage.customsets);
@@ -286,6 +311,45 @@ function updateDex(customsets) {
 	}
 	localStorage.customsets = JSON.stringify(customsets);
 }
+window.updateDex = updateDex;
+
+function getNextCustomImportName() {
+	var base = 'Custom Set';
+	if (!localStorage.customsets) return base;
+
+	var customsets = JSON.parse(localStorage.customsets);
+	var used = {};
+	for (var species in customsets) {
+		for (var setKey in customsets[species]) {
+			var set = customsets[species][setKey];
+			if (!set || !set.isCustomSet) continue;
+			var teamName = set.trainerId ? String(set.trainerId) : String(setKey).replace(/-\d+$/, '');
+			if (teamName === base) {
+				used[1] = true;
+			} else {
+				var match = teamName.match(/^Custom Set (\d+)$/);
+				if (match) used[parseInt(match[1])] = true;
+			}
+		}
+	}
+	var n = 1;
+	while (used[n]) n++;
+	return n === 1 ? base : base + ' ' + n;
+}
+
+function setImportNameFields(name) {
+	var nameInputs = document.getElementsByClassName('import-name-text');
+	for (var i = 0; i < nameInputs.length; i++) {
+		nameInputs[i].value = name;
+	}
+}
+
+function resolveCustomInGameSetKey(customsets, speciesName, teamId) {
+	if (!customsets[speciesName] || !customsets[speciesName][teamId]) return teamId;
+	var slot = 2;
+	while (customsets[speciesName][teamId + '-' + slot]) slot++;
+	return teamId + '-' + slot;
+}
 
 function addSets(pokes, name) {
 	var rows = pokes.split("\n");
@@ -293,6 +357,10 @@ function addSets(pokes, name) {
 	var species;
 	var currentPoke;
 	var addedPokes = 0;
+	var ingameTeamId = name;
+	var ingameTeamRoster = [];
+	var ingameImport = typeof window.isInGameTeamsMode === 'function' && window.isInGameTeamsMode();
+	var customsets = localStorage.customsets ? JSON.parse(localStorage.customsets) : {};
 	for (var i = 0; i < rows.length; i++) {
 		species = findSpecies(rows[i]);
 		if (species.offset !== undefined) {
@@ -305,16 +373,33 @@ function addSets(pokes, name) {
 			currentPoke = getMoves(currentPoke, rows, i + 1);
 			if (species.offset === 1 && currentRow[0].trim()) {
 				currentPoke.nameProp = currentRow[0].trim();
+				ingameTeamId = currentPoke.nameProp;
 			} else {
 				currentPoke.nameProp = name;
 			}
 			currentPoke.isCustomSet = true;
+			if (ingameImport) {
+				currentPoke.trainerId = ingameTeamId;
+				currentPoke.teamSlot = ingameTeamRoster.length + 1;
+				if (customsets[currentPoke.name] && customsets[currentPoke.name][currentPoke.nameProp]) {
+					currentPoke.nameProp = resolveCustomInGameSetKey(customsets, currentPoke.name, ingameTeamId);
+				}
+				ingameTeamRoster.push(currentPoke.name);
+			}
 			addToDex(currentPoke);
+			if (ingameImport && localStorage.customsets) {
+				customsets = JSON.parse(localStorage.customsets);
+			}
 			addedPokes++;
 		}
 	}
 	if (addedPokes > 0) {
+		if (ingameImport && ingameTeamRoster.length &&
+			typeof window.registerCustomInGameTeam === 'function') {
+			window.registerCustomInGameTeam(ingameTeamId, ingameTeamRoster);
+		}
 		alert("Successfully imported " + addedPokes + (addedPokes === 1 ? " set" : " sets"));
+		setImportNameFields(getNextCustomImportName());
 		loadDefaultLists();
 		$(allPokemon("#importedSetsOptions")).css("display", "inline");
 	} else {
@@ -559,6 +644,10 @@ $(document).ready(function () {
 	if (localStorage.customsets) {
 		customSets = JSON.parse(localStorage.customsets);
 		updateDex(customSets);
+		if (typeof window.rebuildCustomInGameTrainerTeamsFromStorage === 'function') {
+			window.rebuildCustomInGameTrainerTeamsFromStorage();
+		}
+		setImportNameFields(getNextCustomImportName());
 		$(allPokemon("#importedSetsOptions")).css("display", "inline");
 	} else {
 		loadDefaultLists();

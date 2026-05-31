@@ -43,4 +43,8 @@ app.get(['/', '/index.html'], (req, res) => {
 	res.sendFile(path.join(DIST_DIR, 'randoms.html'));
 });
 
+app.get(['/raw', '/raw.html'], (req, res) => {
+	res.sendFile(path.join(DIST_DIR, 'raw.html'));
+});
+
 app.use(express.static('dist'))

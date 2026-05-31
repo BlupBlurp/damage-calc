@@ -229,8 +229,10 @@ function getInitialTrainerIdFromUrl() {
 }
 
 function getFirstTrainerSetIdFromOptions(trainerId) {
-	if (!trainerId || typeof window.RELUMI_INGAME_TRAINER_TEAMS === 'undefined') return '';
-	var team = window.RELUMI_INGAME_TRAINER_TEAMS[String(trainerId)];
+	if (!trainerId) return '';
+	var team = typeof window.getTrainerTeamRoster === 'function' ?
+		window.getTrainerTeamRoster(trainerId) :
+		(window.RELUMI_INGAME_TRAINER_TEAMS && window.RELUMI_INGAME_TRAINER_TEAMS[String(trainerId)]);
 	if (!Array.isArray(team) || !team.length) return '';
 
 	var optionIndex = {};
@@ -252,7 +254,7 @@ function applyInitialTrainerSelectionToRight(trainerId, attempt) {
 	if (tries > 20) return;
 
 	var rightSelector = $('#p2 .set-selector');
-	if (!rightSelector.length || typeof window.RELUMI_INGAME_TRAINER_TEAMS === 'undefined') {
+	if (!rightSelector.length) {
 		setTimeout(function () {
 			applyInitialTrainerSelectionToRight(trainerId, tries + 1);
 		}, 50);
@@ -281,6 +283,13 @@ function applyInitialTrainerSelectionToRight(trainerId, attempt) {
 
 $(document).ready(function () {
 	var params = new URLSearchParams(window.location.search);
+	if (params.has('raw')) {
+		var redirectParams = new URLSearchParams(window.location.search);
+		redirectParams.delete('raw');
+		var rawQuery = redirectParams.toString();
+		window.location.replace('raw.html' + (rawQuery ? '?' + rawQuery : ''));
+		return;
+	}
 	var m = params.get('mode');
 	var setSource = params.get('setSource');
 	var trainerId = getInitialTrainerIdFromUrl();
