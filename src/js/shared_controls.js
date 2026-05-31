@@ -888,7 +888,7 @@ $(".set-selector").change(function () {
 						if (candidateSet && Array.isArray(candidateSet.moves) && candidateSet.moves.length) {
 							randset = candidateSet;
 							setName = fallbackSetNames[fs];
-							$(this).val(pokemonName + ' (' + setName + ')');
+							syncSetSelectorDisplay($(this), pokemonName + ' (' + setName + ')');
 							break;
 						}
 					}
@@ -1117,6 +1117,10 @@ $(".set-selector").change(function () {
 		}
 		if (RELUMI_MODE) {
 			pokeObj.find(".teraToggle").prop("checked", false);
+		}
+		var activeSetId = pokeObj.find('.set-selector').val();
+		if (activeSetId) {
+			syncSetSelectorDisplay(pokeObj.find('.set-selector'), activeSetId);
 		}
 	}
 });
@@ -2113,6 +2117,46 @@ function getSetOptionById(setId) {
 	return null;
 }
 
+function buildSetOptionFromId(setId) {
+	if (!setId || setId.indexOf(' (') === -1) return null;
+	var pokemonName = setId.substring(0, setId.indexOf(' ('));
+	var setName = setId.substring(setId.indexOf('(') + 1, setId.lastIndexOf(')'));
+	return {
+		pokemon: pokemonName,
+		set: setName,
+		text: setId,
+		id: setId,
+		searchText: pokemonName + ' ' + setName,
+		isCustom: true
+	};
+}
+
+function formatSetSelectionLabel(option) {
+	if (!option) return '';
+	if (option.text) return option.text;
+	if (option.id) return option.id;
+	if (option.pokemon && option.set) {
+		var suffix = option.set === 'Randoms Set' ? 'Randoms' : option.set;
+		var label = option.pokemon + ' (' + suffix + ')';
+		if (option.isCustom) label += ' [Custom]';
+		return label;
+	}
+	return option.pokemon || '';
+}
+
+function syncSetSelectorDisplay(selector, setId) {
+	if (!selector || !selector.length || !setId) return;
+	var selectedOption = getSetOptionById(setId) || buildSetOptionFromId(setId);
+	if (!selectedOption) return;
+
+	selector.val(setId);
+	if (!selector.data('select2')) return;
+
+	selector.select2('data', selectedOption);
+	var label = formatSetSelectionLabel(selectedOption);
+	selector.parent().find('.select2-chosen').first().text(label);
+}
+
 function setSetSelectorAndSync(pokeObjOrSelector, setId) {
 	if (!setId) return false;
 	var selector = pokeObjOrSelector && pokeObjOrSelector.jquery ?
@@ -2120,23 +2164,7 @@ function setSetSelectorAndSync(pokeObjOrSelector, setId) {
 		$(pokeObjOrSelector);
 	if (!selector || !selector.length) return false;
 
-	selector.val(setId);
-	if (selector.data('select2')) {
-		var selectedOption = getSetOptionById(setId);
-		if (!selectedOption) {
-			var pokemonName = setId.substring(0, setId.indexOf(' ('));
-			var setName = setId.substring(setId.indexOf('(') + 1, setId.lastIndexOf(')'));
-			selectedOption = {
-				pokemon: pokemonName,
-				set: setName,
-				text: setId,
-				id: setId,
-				searchText: pokemonName + ' ' + setName,
-				isCustom: true
-			};
-		}
-		selector.select2('data', selectedOption);
-	}
+	syncSetSelectorDisplay(selector, setId);
 	selector.change();
 	return true;
 }
@@ -2280,6 +2308,9 @@ function loadDefaultLists() {
 				return object.set ? ("&nbsp;&nbsp;&nbsp;" + object.set) : ("<b>" + object.text + "</b>");
 			}
 		},
+		formatSelection: function (object) {
+			return formatSetSelectionLabel(object);
+		},
 		query: function (query) {
 			var pageSize = 30;
 			var results = [];
@@ -2304,7 +2335,7 @@ function loadDefaultLists() {
 		},
 		initSelection: function (element, callback) {
 			var selectedId = element.val();
-			var selectedOption = getSetOptionById(selectedId);
+			var selectedOption = getSetOptionById(selectedId) || buildSetOptionFromId(selectedId);
 			callback(selectedOption || getFirstValidSetOption());
 		}
 	});
@@ -2322,9 +2353,14 @@ function allPokemon(selector) {
 }
 
 function loadCustomList(id) {
-	$("#" + id + " .set-selector").select2({
+	var selector = $("#" + id + " .set-selector");
+	var currentVal = selector.val();
+	selector.select2({
 		formatResult: function (set) {
-			return (set.nickname ? set.pokemon + " (" + set.nickname + ")" : set.id);
+			return formatSetSelectionLabel(set) || (set.nickname ? set.pokemon + " (" + set.nickname + ")" : set.id);
+		},
+		formatSelection: function (set) {
+			return formatSetSelectionLabel(set) || set.id || '';
 		},
 		query: function (query) {
 			var pageSize = 30;
@@ -2346,13 +2382,19 @@ function loadCustomList(id) {
 			});
 		},
 		initSelection: function (element, callback) {
-			var data = "";
-			callback(data);
+			var selectedId = element.val();
+			var selectedOption = getSetOptionById(selectedId) || buildSetOptionFromId(selectedId);
+			callback(selectedOption || getFirstValidSetOption());
 		}
 	});
+	if (currentVal) {
+		syncSetSelectorDisplay(selector, currentVal);
+	}
 }
 
 window.isInGameTeamsMode = isInGameTeamsMode;
+window.setSetSelectorAndSync = setSetSelectorAndSync;
+window.syncSetSelectorDisplay = syncSetSelectorDisplay;
 window.getTrainerTeamRoster = getTrainerTeamRoster;
 window.getActiveInGameTrainerId = getActiveInGameTrainerId;
 window.registerCustomInGameTeam = registerCustomInGameTeam;
