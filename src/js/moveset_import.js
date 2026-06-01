@@ -34,7 +34,7 @@ function ExportPokemon(pokeInfo) {
 			finalText += "Tera Type: " + teraType + "\n";
 		}
 	}
-	if (gen > 2) {
+	if (gen === 0 || gen > 2) {
 		var EVs_Array = [];
 		for (var stat in pokemon.evs) {
 			var ev = pokemon.evs[stat] ? pokemon.evs[stat] : 0;
@@ -49,8 +49,10 @@ function ExportPokemon(pokeInfo) {
 			finalText += serialize(EVs_Array, " / ");
 			finalText += "\n";
 		}
+		if (pokemon.nature) {
+			finalText += pokemon.nature + " Nature" + "\n";
+		}
 	}
-	if (pokemon.nature && gen > 2) finalText += pokemon.nature + " Nature" + "\n";
 	var IVs_Array = [];
 	for (var stat in pokemon.ivs) {
 		var iv = pokemon.ivs[stat] ? pokemon.ivs[stat] : 0;
@@ -188,7 +190,7 @@ function getStats(currentPoke, rows, x) {
 				currentEV[1] = statToLegacyStat(currentEV[1].toLowerCase());
 				evs[currentEV[1]] = parseInt(currentEV[0]);
 			}
-			currentPoke.evs = evs;
+			currentPoke[$('#champions').prop('checked') ? 'sps' : 'evs'] = evs;
 			break;
 		case 'IVs':
 			for (j = 1; j < currentRow.length; j++) {
@@ -240,6 +242,9 @@ function addToDex(poke) {
 	}
 	if (poke.teraType !== undefined) {
 		dexObject.teraType = poke.teraType;
+	}
+	if (poke.sps !== undefined) {
+		dexObject.sps = poke.sps;
 	}
 	dexObject.level = poke.level;
 	dexObject.evs = poke.evs;
