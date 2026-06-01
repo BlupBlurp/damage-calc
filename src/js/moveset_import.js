@@ -190,6 +190,13 @@ function getStats(currentPoke, rows, x) {
 				currentEV[1] = statToLegacyStat(currentEV[1].toLowerCase());
 				evs[currentEV[1]] = parseInt(currentEV[0]);
 			}
+			// Initialize unmentioned EV stats to 0 to prevent defaulting to 84
+			var allStats = ['hp', 'at', 'df', 'sa', 'sd', 'sp'];
+			for (var k = 0; k < allStats.length; k++) {
+				if (evs[allStats[k]] === undefined) {
+					evs[allStats[k]] = 0;
+				}
+			}
 			currentPoke[$('#champions').prop('checked') ? 'sps' : 'evs'] = evs;
 			break;
 		case 'IVs':
