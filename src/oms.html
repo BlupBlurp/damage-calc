@@ -40,6 +40,7 @@
 <header>
     <div class="nav-wrapper"><ul class="nav">
         <li><a class="button nav-first" href="https://luminescent.team/pokedex"><img src="./img/pokemonshowdownbeta.png" srcset="./img/pokemonshowdownbeta.png 1x, ./img/pokemonshowdownbeta@2x.png 2x" alt="Pok&eacute;mon Showdown" width="146" height="44" /> Pok&eacute;dex</a></li>
+        <li><a class="button" href="https://luminescent.team/mapper">Mapper</a></li>
         <li><a class="button greenbutton nav-last" href="https://play.relumishowdown.dpdns.org/">Play</a></li>
     </ul></div>
 </header>
@@ -71,8 +72,9 @@
             <input class="mode visually-hidden" type="radio" name="mode" id="one-vs-one" /><label class="btn btn-left btn-wide" for="one-vs-one">One vs One</label>
             <input class="mode visually-hidden" type="radio" name="mode" id="one-vs-all" /><label class="btn btn-mid btn-wide gen-specific g3 g4 g5 g6 g7 g8 g9" for="one-vs-all">One vs All</label>
             <input class="mode visually-hidden" type="radio" name="mode" id="all-vs-one" /><label class="btn btn-mid btn-wide gen-specific g3 g4 g5 g6 g7 g8 g9" for="all-vs-one">All vs One</label>
-            <input class="mode visually-hidden" type="radio" name="mode" id="randoms" /><label class="btn btn-mid btn-xwide" for="randoms">Random Battles</label>
-            <input class="mode visually-hidden" type="radio" name="mode" id="oms" checked="checked" /><label class="btn btn-right btn-xwide" for="oms">Other Metagames</label>
+			<input class="mode visually-hidden" type="radio" name="mode" id="champions" /><label class="btn btn-mid btn-wide" for="champions">Champions</label>           
+            <input class="mode visually-hidden" type="radio" name="mode" id="randoms" /><label class="btn btn-mid btn-wide" for="randoms">Random Battles</label>
+            <input class="mode visually-hidden" type="radio" name="mode" id="oms" checked="checked" /><label class="btn btn-right btn-wide" for="oms">Other Metagames</label>
         </span>
     </div>
     <hr />
@@ -1638,6 +1640,7 @@
     <script type="text/javascript" src="./calc/util.js?"></script>
     <script type="text/javascript" src="./calc/stats.js?"></script>
     <script type="text/javascript" src="./calc/data/species.js?"></script>
+    <script type="text/javascript" src="./js/data/sets/champions.js"></script>
     <script type="text/javascript" src="./js/data/sets/gen9.js?"></script>
     <script type="text/javascript" src="./js/data/sets/gen8.js?"></script>
     <script type="text/javascript" src="./js/data/sets/gen7.js?"></script>
@@ -1676,8 +1679,8 @@
 <!-- END WRAPPER -->
 
 <div class="credits">Created by Honko; maintained by Austin, Kris, <a href="https://github.com/smogon/damage-calc/contributors" class="links-lighten" target="_blank">and others</a>.
-    <ul><li><a href="https://www.smogon.com/forums/threads/pok%C3%A9mon-showdown-damage-calculator.3593546/" class="links-lighten" target="_blank">Bug Reports</a></li>
-    <li><a href="https://github.com/smogon/damage-calc" class="links-lighten" target="_blank">GitHub repository</a></li></ul>
+    <ul><li><a href="https://discord.gg/luminescent" class="links-lighten" target="_blank">Bug Reports</a></li>
+    <li><a href="https://github.com/BlupBlurp/damage-calc" class="links-lighten" target="_blank">GitHub repository</a></li></ul>
 
     <select id="dark-theme-toggle">
         <option value="">Auto dark theme</option>
