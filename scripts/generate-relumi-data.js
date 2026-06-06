@@ -190,17 +190,26 @@ function buildInGameTeams() {
       if (!species || !species.exists || !species.name) continue;
 
       let moveList = [];
+      const levelUpMovePool = getFallbackLevelUpMoves(species, Number(row[`P${slot}Level`] || 100));
       for (let m = 1; m <= 4; m++) {
         const moveNo = Number(row[`P${slot}Waza${m}`] || 0);
-        if (!moveNo) continue;
-        const moveName = (moveNames.get(moveNo) || '').trim();
-        if (!moveName || moveName === '---') continue;
-        const move = dex.moves.get(moveName);
-        if (!move?.exists || !move.name || moveList.includes(move.name)) continue;
-        moveList.push(move.name);
+        if (moveNo) {
+          const moveName = (moveNames.get(moveNo) || '').trim();
+          if (!moveName || moveName === '---') continue;
+          const move = dex.moves.get(moveName);
+          if (!move?.exists || !move.name || moveList.includes(move.name)) continue;
+          moveList.push(move.name);
+        } else {
+          for (const poolMove of levelUpMovePool) {
+            if (!moveList.includes(poolMove)) {
+              moveList.push(poolMove);
+              break;
+            }
+          }
+        }
       }
       if (!moveList.length) {
-        moveList = getFallbackLevelUpMoves(species, Number(row[`P${slot}Level`] || 100));
+        moveList = levelUpMovePool;
       }
 
       const abilityNo = Number(row[`P${slot}Tokusei`] || 0);
