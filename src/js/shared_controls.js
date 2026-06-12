@@ -64,13 +64,20 @@ function getRelumiRanddexForCurrentSource() {
 
 function getTrainerSpriteName(speciesName) {
 	if (!speciesName) return '';
-	// PS gen5 sprites use lowercase IDs with hyphens between forme segments (e.g. avalugg-hisui)
-	return speciesName.toLowerCase()
+	// PS gen5 sprites use lowercase IDs with hyphens between forme segments (e.g. avalugg-hisui).
+	// Multi-word formes (e.g. Dawn-Wings) collapse internal hyphens in sprite names.
+	var lower = speciesName.toLowerCase()
 		.replace(/♂/g, 'm')
 		.replace(/♀/g, 'f')
 		.replace(/[^a-z0-9-]/g, '')
 		.replace(/--+/g, '-')
 		.replace(/^-|-$/g, '');
+	// Collapse multi-word forme suffixes: keep first hyphen (base-forme separator), remove internal ones
+	var firstHyphen = lower.indexOf('-');
+	if (firstHyphen === -1) return lower;
+	var base = lower.substring(0, firstHyphen);
+	var forme = lower.substring(firstHyphen + 1).replace(/-/g, '');
+	return base + '-' + forme;
 }
 
 function getTrainerTeamRoster(trainerId) {

@@ -413,6 +413,14 @@ function addSets(pokes, name) {
 		alert("Successfully imported " + addedPokes + (addedPokes === 1 ? " set" : " sets"));
 		setImportNameFields(getNextCustomImportName());
 		loadDefaultLists();
+		// Re-apply "Only show imported sets" filter that loadDefaultLists would have overwritten
+		$('.poke-info').each(function () {
+			var checked = $(this).find('#importedSets').prop('checked');
+			if (checked) {
+				var pokeID = $(this).prop('id');
+				if (pokeID) loadCustomList(pokeID);
+			}
+		});
 		$(allPokemon("#importedSetsOptions")).css("display", "inline");
 	} else {
 		alert("No sets imported, please check your syntax and try again");
