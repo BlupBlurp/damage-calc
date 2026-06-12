@@ -152,7 +152,7 @@ header {
     .nav a.greenbutton {
         position: absolute;
         top: 10px;
-        right: 0;
+        left: 152px;
     }
 }
 @media (max-width:419px) {
@@ -317,12 +317,16 @@ a:visited {
 /* general page styling */
 html, body {
     font-size: 10pt;
-    min-width: 100em;
 }
 .wrapper {
     padding: 0 1em;
     max-width: 1300px;
     margin: 0 auto;
+}
+
+/* Panels row: transparent wrapper on desktop; flexbox at responsive widths */
+.panels-row {
+    /* No styling on desktop — panels float naturally via .panel rules */
 }
 .credits {
     clear: both;
@@ -395,14 +399,16 @@ th {
 }
 .panel {
     float: left;
-    display: inline-block; /* required for honkaculate to work */
+    display: inline-block; /* required for honkalculate to work */
 }
 .poke-info {
     width: 32em;
+    max-width: 100%;
 }
 .field-info, .poke-import {
     text-align: center;
     width: 27.5em;
+    max-width: 100%;
 }
 
 #holder-2 tr {
@@ -516,7 +522,7 @@ th {
 /* header */
 .move-result-group {
     display: flex;
-    min-width: 50rem;
+    flex-wrap: wrap;
     margin-top: 1em;
 }
 .move-result-subgroup {
@@ -714,15 +720,19 @@ table.field {
 .import-team-text {
     margin: 1rem 0;
     min-width: 27rem;
+    max-width: 100%;
     min-height: 10rem;
     resize: vertical;
+    box-sizing: border-box;
 }
 
 .import-name-text {
-	min-width: 26.3rem;
+    min-width: 26.3rem;
+    max-width: 100%;
     min-height: 1rem;
     overflow: auto;
     display: inline;
+    box-sizing: border-box;
 }
 
 .hpbar {
@@ -770,4 +780,162 @@ table.field {
 
 .flex-parent {
 	display: flex;
+}
+
+/*********************************************************
+ * Responsive: flexbox wrapping (order flip so Field wraps below P1+P2)
+ * Includes box-sizing:border-box to prevent overlap at narrow widths.
+ *********************************************************/
+@media (max-width: 1280px) {
+    .panels-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 0.5em;
+        justify-content: center;
+    }
+    .panels-row > .panel {
+        float: none;
+        display: block;
+        box-sizing: border-box;
+        max-width: 100%;
+    }
+    .panels-row > .panel:first-child,
+    .panels-row > .panel:last-child {
+        width: 32em;
+    }
+    .panels-row > .panel:nth-child(2) {
+        width: 27.5em;
+        order: 2; /* Field wraps below */
+    }
+    .panels-row > .panel:last-child {
+        order: 1; /* P2 stays with P1 on top row */
+    }
+    fieldset {
+        box-sizing: border-box;
+    }
+}
+
+/*********************************************************
+ * Responsive: tablet layout (stacked panels)
+ *********************************************************/
+@media (max-width: 650px) {
+    .poke-info, .field-info, .poke-import {
+        width: 100% !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    fieldset {
+        float: none;
+    }
+    .move-result-group {
+        flex-direction: column;
+    }
+    .move-result-subgroup {
+        width: 100%;
+    }
+    .info-selectors select {
+        width: 100%;
+        max-width: 14em;
+    }
+    /* Allow inline-styled weather/field divs to fit */
+    .field-info > div[style*="width"] {
+        width: auto !important;
+        max-width: 100%;
+    }
+    .import-team-text {
+        width: 100%;
+    }
+    /* Keep field table columns balanced */
+    table.field {
+        table-layout: fixed;
+    }
+}
+
+/*********************************************************
+ * Responsive: phone layout (compact controls)
+ *********************************************************/
+@media (max-width: 600px) {
+    html, body {
+        font-size: 9pt;
+    }
+    .wrapper {
+        padding: 0 0.25em;
+    }
+    .title-text {
+        font-size: 1.2em;
+        display: block;
+        margin: 0.3em 0;
+    }
+    .genSelection, .notationSelection, .modeSelection, .sourceSelection {
+        display: block;
+        margin: 3px 0;
+    }
+    .poke-info table {
+        font-size: 0.9em;
+    }
+    .poke-info label {
+        width: 5em;
+    }
+    .top label, .info-selectors label {
+        width: 4em;
+    }
+    /* Allow stat table to scroll if needed */
+    .info-group {
+        overflow-x: auto;
+    }
+    .move-selector {
+        width: 8em;
+    }
+    .move-type {
+        width: 5em;
+    }
+    .move-cat {
+        width: 5em;
+    }
+    .move-result-group .btn {
+        width: 8em;
+    }
+    /* Reduce button widths */
+    .btn-wide { width: 5em; }
+    .btn-xwide { width: 6em; }
+    .btn-xxwide { width: 7em; }
+    .btn-xxxwide { width: 8em; }
+    /* Fix nav on very small screens */
+    .nav-wrapper {
+        width: auto;
+    }
+    .nav a {
+        padding: 6px 8px;
+        font-size: 9pt;
+    }
+    .trainer-team-slot img {
+        width: 38px;
+        height: 38px;
+    }
+    .trainer-team-slot {
+        font-size: 0.8em;
+        padding: 2px 6px 2px 3px;
+    }
+}
+
+/*********************************************************
+ * Responsive: very small phones
+ *********************************************************/
+@media (max-width: 400px) {
+    .poke-info table {
+        font-size: 0.8em;
+    }
+    .poke-info label {
+        width: 4.2em;
+    }
+    .move-selector {
+        width: 7em;
+    }
+    .move-result-group .btn {
+        width: 7em;
+    }
+    .btn-wide, .btn-xwide, .btn-xxwide, .btn-xxxwide {
+        width: auto;
+        min-width: 5em;
+    }
 }
