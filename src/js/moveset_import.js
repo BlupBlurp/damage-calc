@@ -371,7 +371,6 @@ function addSets(pokes, name) {
 	var addedPokes = 0;
 	var ingameTeamId = name;
 	var ingameTeamRoster = [];
-	var ingameImport = typeof window.isInGameTeamsMode === 'function' && window.isInGameTeamsMode();
 	var customsets = localStorage.customsets ? JSON.parse(localStorage.customsets) : {};
 	for (var i = 0; i < rows.length; i++) {
 		species = findSpecies(rows[i]);
@@ -390,23 +389,24 @@ function addSets(pokes, name) {
 				currentPoke.nameProp = name;
 			}
 			currentPoke.isCustomSet = true;
-			if (ingameImport) {
-				currentPoke.trainerId = ingameTeamId;
-				currentPoke.teamSlot = ingameTeamRoster.length + 1;
-				if (customsets[currentPoke.name] && customsets[currentPoke.name][currentPoke.nameProp]) {
-					currentPoke.nameProp = resolveCustomInGameSetKey(customsets, currentPoke.name, ingameTeamId);
-				}
-				ingameTeamRoster.push(currentPoke.name);
+			// Always assign trainer/team metadata so imported sets are grouped as a team in any source mode
+			currentPoke.trainerId = ingameTeamId;
+			currentPoke.teamSlot = ingameTeamRoster.length + 1;
+			if (customsets[currentPoke.name] && customsets[currentPoke.name][currentPoke.nameProp]) {
+				currentPoke.nameProp = resolveCustomInGameSetKey(customsets, currentPoke.name, ingameTeamId);
 			}
+			ingameTeamRoster.push(currentPoke.name);
 			addToDex(currentPoke);
-			if (ingameImport && localStorage.customsets) {
+			// Refresh customsets snapshot after addToDex in case the same species appears again in this import batch
+			if (localStorage.customsets) {
 				customsets = JSON.parse(localStorage.customsets);
 			}
 			addedPokes++;
 		}
 	}
 	if (addedPokes > 0) {
-		if (ingameImport && ingameTeamRoster.length &&
+		// Register the team for trainer-team-strip rendering in both source modes
+		if (ingameTeamRoster.length &&
 			typeof window.registerCustomInGameTeam === 'function') {
 			window.registerCustomInGameTeam(ingameTeamId, ingameTeamRoster);
 		}

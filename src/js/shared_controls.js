@@ -202,7 +202,8 @@ function getTeamMemberSetId(speciesName, trainerId, slotIndex) {
 function renderTrainerTeamStrip(pokeObj, trainerId, selectedSpecies) {
 	var strip = pokeObj.find('.trainer-team-strip');
 	if (!strip.length) return;
-	if (!isInGameTeamsMode() || !trainerId) {
+	// Show trainer team strip whenever there is a trainerId with a valid roster, regardless of source mode
+	if (!trainerId) {
 		strip.empty().addClass('hide');
 		return;
 	}
@@ -339,6 +340,14 @@ $("input:radio[name='setSource']").change(function () {
 	updateExportTeamButtonVisibility();
 	randdex = getRelumiRanddexForCurrentSource();
 	loadDefaultLists();
+	// Re-apply "Only show imported sets" state that loadDefaultLists would have overwritten
+	$('.poke-info').each(function () {
+		var checked = $(this).find('#importedSets').prop('checked');
+		if (checked) {
+			var pokeID = $(this).prop('id');
+			if (pokeID) loadCustomList(pokeID);
+		}
+	});
 	var firstSet = getFirstValidSetOption();
 	if (firstSet && firstSet.id) {
 		$(".set-selector").val(firstSet.id);
@@ -915,6 +924,10 @@ $(".set-selector").change(function () {
 		}
 		var isCustomRegSet = !!(regSets && setdex[pokemonName][setName] && setdex[pokemonName][setName].isCustomSet);
 		var activeRandset = isCustomRegSet ? null : randset;
+		// Extract trainerId from custom sets for team strip rendering in random battles mode
+		if (!selectedTrainerId && regSets && setdex[pokemonName][setName] && setdex[pokemonName][setName].trainerId) {
+			selectedTrainerId = String(setdex[pokemonName][setName].trainerId);
+		}
 
 		if (activeRandset && !inGameSource) {
 			var listItems = activeRandset.items ? activeRandset.items : [];
@@ -1034,6 +1047,9 @@ $(".set-selector").change(function () {
 				$(this).closest('.poke-info').find(".extraSetMoves").html(formatMovePool(setMoves));
 			} else if (inGameSource) {
 				$(this).closest('.poke-info').find(".pool").hide();
+			} else {
+			// Custom set (regSets) in random battles mode: hide move pool to avoid showing stale data
+				$(this).closest('.poke-info').find(".move-pool").hide();
 			}
 		} else {
 			if (!RELUMI_MODE) {
@@ -1129,7 +1145,7 @@ $(".set-selector").change(function () {
 });
 
 $(document).on('click', '.trainer-team-slot', function () {
-	if (!isInGameTeamsMode()) return;
+	// Allow trainer-team-slot clicks in any source mode (random battles or in-game teams)
 	var setId = String($(this).attr('data-set-id') || '');
 	if (!setId) {
 		var trainerId = String($(this).attr('data-trainer-id') || '');
