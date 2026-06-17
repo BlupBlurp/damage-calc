@@ -233,7 +233,7 @@ function renderTrainerTeamStrip(pokeObj, trainerId, selectedSpecies) {
 		html += '<button type="button" class="trainer-team-slot' + (isCurrent ? ' current-team-slot' : '') +
 			'" data-trainer-id="' + trainerId + '" data-species="' + memberName +
 			'" data-set-id="' + setId + '" title="' + memberName + '">';
-		html += '<img alt="' + memberName + '" src="https://play.pokemonshowdown.com/sprites/gen5/' + spriteName + '.png" />';
+		html += '<img alt="' + memberName + '" src="https://play.relumishowdown.dpdns.org/sprites/gen5/' + spriteName + '.png" />';
 		html += '<span>' + memberName + '</span>';
 		html += '</button>';
 	}
