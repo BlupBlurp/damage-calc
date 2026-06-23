@@ -943,9 +943,11 @@ $(".set-selector").change(function () {
 			$(this).closest('.poke-info').find(".extraSetAbilities").text(listAbilities.join(', '));
 			if (gen >= 2) $(this).closest('.poke-info').find(".item-pool").show();
 			$(this).closest('.poke-info').find(".extraSetItems").text(listItems.join(', '));
-			if (gen !== 8 && gen !== 1) {
+			if (!(gen === 8 && setName === 'BDSP Randoms') && gen !== 1) {
 				$(this).closest('.poke-info').find(".role-pool").show();
 				if (gen >= 9 && !RELUMI_MODE) $(this).closest('.poke-info').find(".tera-type-pool").show();
+			} else {
+				$(this).closest('.poke-info').find(".role-pool").hide();
 			}
 			var listRoles = activeRandset.roles ? Object.keys(activeRandset.roles) : [];
 			$(this).closest('.poke-info').find(".extraSetRoles").text(listRoles.join(', '));
@@ -1016,7 +1018,7 @@ $(".set-selector").change(function () {
 					setMoves = activeRandset.moves.slice();
 				} else if (Array.isArray(activeRandset.moves) && activeRandset.moves.length) {
 					setMoves = activeRandset.moves;
-				} else if (gen === 8 || gen === 1) {
+				} else if ((gen === 8 && setName === 'BDSP Randoms') || gen === 1) {
 					setMoves = activeRandset.moves;
 				} else {
 					setMoves = [];
@@ -2276,6 +2278,7 @@ function isPokeInfoGrounded(pokeInfo) {
 		  teraType ? teraType !== "Flying" : pokeInfo.find(".type1").val() !== "Flying" &&
         teraType ? teraType !== "Flying" : pokeInfo.find(".type2").val() !== "Flying" &&
         pokeInfo.find(".ability").val() !== "Levitate" &&
+        pokeInfo.find(".ability").val() !== "Eelevate" &&
         pokeInfo.find(".item").val() !== "Air Balloon"
 	);
 }
