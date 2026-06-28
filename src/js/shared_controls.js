@@ -529,7 +529,7 @@ $(".ability").bind("keyup change", function () {
 		$(this).closest(".poke-info").find(moveSelector).find(".move-hits").val(moveHits);
 	}
 
-	var TOGGLE_ABILITIES = ['Flash Fire', 'Intimidate', 'Minus', 'Plus', 'Slow Start', 'Unburden', 'Stakeout', 'Teraform Zero'];
+	var TOGGLE_ABILITIES = ['Flash Fire', 'Intimidate', 'Minus', 'Plus', 'Slow Start', 'Unburden', 'Analytic', 'Stakeout', 'Teraform Zero'];
 
 	if (TOGGLE_ABILITIES.indexOf(ability) >= 0) {
 		$(this).closest(".poke-info").find(".abilityToggle").show();
@@ -756,7 +756,8 @@ $(".move-selector").change(function () {
 	$(this).attr('data-prev', moveName || '(No Move)');
 	moveGroupObj.children(".move-type").val(move.type);
 	moveGroupObj.children(".move-cat").val(move.category);
-	moveGroupObj.children(".move-crit").prop("checked", move.willCrit === true);
+	var isDynamaxed = $(this).closest(".poke-info").find(".max").prop("checked");
+	moveGroupObj.children(".move-crit").prop("checked", !isDynamaxed && move.willCrit === true);
 
 	var stat = move.category === 'Special' ? 'spa' : 'atk';
 	if (Array.isArray(move.multihit) || (!isNaN(move.multihit) && move.multiaccuracy)) {
