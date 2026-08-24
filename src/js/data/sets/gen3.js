@@ -614,9 +614,8 @@ var SETDEX_ADV = {
     "NU Choice Band": {"ability":"Guts","item":"Choice Band","nature":"Adamant","ivs":{"df":30,"sd":30},"evs":{"hp":208,"at":252,"sp":44},"moves":["Cross Chop","Hidden Power Ghost","Rock Slide","Earthquake"]}
   },
   "Machamp": {
-    "OU Choice Band": {"ability":"Guts","item":"Choice Band","nature":"Adamant","ivs":{"df":30,"sd":30},"evs":{"hp":252,"at":252,"sp":4},"moves":["Cross Chop","Sleep Talk","Hidden Power Ghost","Rock Slide"]},
-    "OU Bulk Up": {"ability":"Guts","item":"Leftovers","nature":"Adamant","ivs":{"df":30,"sd":30},"evs":{"hp":128,"at":252,"sp":128},"moves":["Bulk Up","Cross Chop","Rock Slide","Hidden Power Ghost"]},
-    "OU RestTalk": {"ability":"Guts","item":"Leftovers","nature":"Adamant","evs":{"hp":252,"at":96,"df":156,"sp":4},"moves":["Rest","Sleep Talk","Cross Chop","Rock Slide"]}
+    "OU Bulk Up": {"ability":"Guts","item":"Leftovers","nature":"Adamant","ivs":{"df":30,"sd":30},"evs":{"at":252,"sd":4,"sp":252},"moves":["Bulk Up","Cross Chop","Rock Slide","Hidden Power Ghost"]},
+    "OU Choice Band": {"ability":"Guts","item":"Choice Band","nature":"Adamant","ivs":{"df":30,"sd":30},"evs":{"at":252,"df":4,"sp":252},"moves":["Cross Chop","Rock Slide","Focus Punch","Hidden Power Ghost"]}
   },
   "Bellsprout": {
     "LC Sunny Day Sweeper": {"level":5,"ability":"Chlorophyll","item":"Sitrus Berry","nature":"Rash","ivs":{"at":30,"sa":30,"sp":30},"evs":{"at":80,"sa":200,"sp":200},"moves":["Sunny Day","Solar Beam","Hidden Power Fire","Sludge Bomb"]}
@@ -660,7 +659,6 @@ var SETDEX_ADV = {
   },
   "Magnemite": {
     "LC Offensive Utility": {"level":5,"ability":"Sturdy","item":"Sitrus Berry","nature":"Modest","ivs":{"at":2,"sa":30},"evs":{"df":36,"sa":240,"sd":76,"sp":156},"moves":["Thunderbolt","Hidden Power Grass","Toxic","Substitute"]},
-    "ZU Substitute + Status": {"ability":"Magnet Pull","item":"Leftovers","nature":"Timid","ivs":{"at":2,"df":30,"sa":30},"evs":{"hp":200,"sd":132,"sp":176},"moves":["Thunderbolt","Hidden Power Water","Substitute","Toxic"]},
     "PU Showdown Usage": {"ability":"Magnet Pull","item":"Leftovers","nature":"Modest","ivs":{"at":30,"sa":30},"evs":{"sa":252,"sd":80,"sp":176},"moves":["Thunder Wave","Thunderbolt","Hidden Power Grass","Metal Sound"]}
   },
   "Magneton": {
@@ -1167,7 +1165,8 @@ var SETDEX_ADV = {
     "OU Offensive": {"ability":"Natural Cure","item":"Leftovers","nature":"Timid","ivs":{"at":30,"sa":30,"sp":30},"evs":{"hp":76,"sa":252,"sp":180},"moves":["Calm Mind","Giga Drain","Hidden Power Fire","Psychic"]},
     "OU Leech Seed + 3 Attacks": {"ability":"Natural Cure","item":"Leftovers","nature":"Modest","ivs":{"at":30,"sa":30,"sp":30},"evs":{"sa":252,"sd":76,"sp":180},"moves":["Leech Seed","Giga Drain","Hidden Power Fire","Psychic"]},
     "OU Swords Dance": {"ability":"Natural Cure","item":"Leftovers","nature":"Impish","evs":{"hp":244,"df":124,"sp":140},"moves":["Swords Dance","Baton Pass","Leech Seed","Recover"]},
-    "OU Defensive Calm Mind": {"ability":"Natural Cure","item":"Leftovers","nature":"Bold","evs":{"hp":252,"df":124,"sa":76,"sd":36,"sp":20},"moves":["Calm Mind","Leech Seed","Psychic","Recover"]}
+    "OU Defensive Calm Mind": {"ability":"Natural Cure","item":"Leftovers","nature":"Bold","evs":{"hp":252,"df":124,"sa":76,"sd":36,"sp":20},"moves":["Calm Mind","Leech Seed","Psychic","Recover"]},
+    "Doubles OU Calm Mind": {"ability":"Natural Cure","item":"Leftovers","nature":"Modest","ivs":{"at":30,"sa":30,"sp":30},"evs":{"hp":252,"df":40,"sa":92,"sd":4,"sp":120},"moves":["Psychic","Hidden Power Fire","Calm Mind","Protect"]}
   },
   "Mightyena": {
     "NU Cleric Phazer": {"ability":"Intimidate","item":"Leftovers","nature":"Bold","evs":{"hp":252,"df":252,"sd":4},"moves":["Heal Bell","Roar","Crunch","Toxic"]},
