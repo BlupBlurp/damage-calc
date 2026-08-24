@@ -330,6 +330,10 @@ export function calculateSMSSSV(
     field.defenderSide.isAuroraVeil = false;
   }
 
+  if (attacker.hasAbility('Electromorphosis') && attacker.abilityOn) {
+    field.attackerSide.isCharge = true;
+  }
+
   let hasAteAbilityTypeChange = false;
   let isAerilate = false;
   let isPixilate = false;
@@ -364,7 +368,7 @@ export function calculateSMSSSV(
       type = 'Ice';
     } else if ((isNormalize = attacker.hasAbility('Normalize'))) { // Boosts any type
       type = 'Normal';
-    } else if ((isDragonize = attacker.hasAbility('Dragonize')) && normal) {
+    } else if ((isDragonize = attacker.hasAbility('Dragonize') && normal)) {
       type = 'Dragon';
     }
     if (isGalvanize || isPixilate || isRefrigerate || isAerilate || isNormalize || isDragonize) {
@@ -1174,6 +1178,11 @@ export function calculateBPModsSMSSSV(
   ) {
     bpMods.push(6144);
     desc.attackerAbility = attacker.ability;
+  }
+
+  if (field.attackerSide.isCharge && move.hasType('Electric')) {
+    bpMods.push(8192);
+    desc.isCharge = true;
   }
 
   const aura = `${move.type} Aura`;
