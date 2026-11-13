@@ -356,7 +356,15 @@ $("input:radio[name='setSource']").change(function () {
 		}
 	});
 	var firstSet = getFirstValidSetOption();
-	if (firstSet && firstSet.id) {
+	// In-game teams mode starts with an empty left side so a team can be built from scratch
+	var blankSet = isInGame ? getSetOptionById('(No Pokemon) (Blank Set)') : null;
+	var leftSelector = $('#p1 .set-selector');
+	if (blankSet && blankSet.id && leftSelector.length) {
+		setSetSelectorAndSync(leftSelector, blankSet.id);
+		if (firstSet && firstSet.id) {
+			setSetSelectorAndSync($('#p2 .set-selector'), firstSet.id);
+		}
+	} else if (firstSet && firstSet.id) {
 		$(".set-selector").val(firstSet.id);
 		$(".set-selector").change();
 	}
