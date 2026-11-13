@@ -9,11 +9,12 @@ const showdownRoot = path.resolve(root, '..', 'pokemon-showdown');
 
 const relumiSinglesPath = path.join(showdownRoot, 'data', 'random-battles', 'gen8relumi', 'sets.json');
 const relumiDoublesPath = path.join(showdownRoot, 'data', 'random-battles', 'gen8relumi', 'doubles-sets.json');
-const trainerTablePath = path.join(showdownRoot, 'game-files', 'TrainerTable.json');
-const abilityNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_tokusei.json');
-const moveNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_wazaname.json');
+const trainerTablePath = path.join(showdownRoot, 'game-files', 'TrainerTable.asset');
+const abilityNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_tokusei.asset');
+const moveNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_wazaname.asset');
 
 const {Dex} = require(path.join(showdownRoot, 'dist', 'sim', 'dex'));
+const yaml = loadYaml();
 const dex = Dex.mod('gen8relumi');
 
 const NATURE_NAMES_BY_ID = [
@@ -43,6 +44,27 @@ const NATURE_NAMES_BY_ID = [
   'Careful',
   'Quirky',
 ];
+
+function loadYaml() {
+  try {
+    return require('js-yaml');
+  } catch (err) {
+    // fall back to the Showdown checkout's copy, where js-yaml is a declared dependency
+    return require(require.resolve('js-yaml', {paths: [showdownRoot]}));
+  }
+}
+
+// Unity TextAsset YAML: drop the metadata envelope so callers see the same
+// shape the old JSON exports had (mirrors pokemon-showdown's readYaml).
+function readYamlAsset(filePath) {
+  const raw = fs.readFileSync(filePath, 'utf8');
+  const body = raw
+    .replace(/^%YAML[^\n]*\n/, '')
+    .replace(/^%TAG[^\n]*\n/, '')
+    .replace(/^--- !u!\d+.*$/m, '---');
+  const doc = yaml.load(body);
+  return doc && doc.MonoBehaviour ? doc.MonoBehaviour : doc;
+}
 
 function uniq(arr) {
   return [...new Set(arr.filter(Boolean))];
@@ -162,9 +184,9 @@ function getFallbackLevelUpMoves(species, level) {
 }
 
 function buildInGameTeams() {
-  const trainerTable = JSON.parse(fs.readFileSync(trainerTablePath, 'utf8'));
-  const abilityNames = extractIndexedNames(JSON.parse(fs.readFileSync(abilityNamesPath, 'utf8')).labelDataArray || []);
-  const moveNames = extractIndexedNames(JSON.parse(fs.readFileSync(moveNamesPath, 'utf8')).labelDataArray || []);
+  const trainerTable = readYamlAsset(trainerTablePath);
+  const abilityNames = extractIndexedNames(readYamlAsset(abilityNamesPath).labelDataArray || []);
+  const moveNames = extractIndexedNames(readYamlAsset(moveNamesPath).labelDataArray || []);
 
   const itemNameByNo = new Map();
   for (const item of dex.items.all()) {
