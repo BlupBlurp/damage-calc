@@ -2300,6 +2300,33 @@ var stickyWeather = (function () {
 	};
 })();
 
+var RESULT_MOVE_TYPES = [
+	"normal", "fighting", "flying", "poison", "ground", "rock", "bug", "ghost",
+	"steel", "fire", "water", "grass", "electric", "psychic", "ice", "dragon",
+	"dark", "fairy"
+];
+var RESULT_MOVE_TYPE_CLASSES = RESULT_MOVE_TYPES.map(function (slug) {
+	return "result-move-type-" + slug;
+}).join(" ");
+
+function setResultMoveLabel(moveSelector, name, type) {
+	var slug = String(type || "").toLowerCase().replace(/[^a-z]/g, "");
+	if (RESULT_MOVE_TYPES.indexOf(slug) === -1) slug = "";
+	var label = $(moveSelector + " + label");
+	label.removeClass("result-move-typed");
+	label.removeClass(RESULT_MOVE_TYPE_CLASSES);
+	label.empty();
+	if (slug) {
+		label.addClass("result-move-typed result-move-type-" + slug);
+		label.append($("<img>").addClass("result-move-icon").attr({
+			src: "./img/type/" + slug + ".webp",
+			alt: "",
+			draggable: "false"
+		}));
+	}
+	label.append($("<span>").addClass("result-move-text").text(name));
+}
+
 var stickyMoves = (function () {
 	var lastClicked = 'resultMoveL1';
 	$(".result-move").click(function () {

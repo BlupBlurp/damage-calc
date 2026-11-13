@@ -541,6 +541,75 @@ th {
     margin: 0 0 5px;
 }
 
+.btn.result-move-typed {
+    display: inline-grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    column-gap: 4px;
+    align-items: center;
+    padding: 3px 5px;
+    overflow: hidden;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+    background: var(--type-bg, #828282);
+    border-color: var(--type-border, #656565);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .2);
+}
+.btn.result-move-typed:hover,
+.btn.result-move-typed:focus,
+.visually-hidden:focus + .btn.result-move-typed {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+    background: var(--type-bg, #828282);
+    border-color: var(--type-border, #656565);
+    filter: brightness(1.1);
+}
+.result-move-icon {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .5));
+}
+.result-move-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.visually-hidden[type=radio]:checked + .btn.result-move-typed,
+.visually-hidden[type=radio]:checked + .btn.result-move-typed:hover {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+    background: var(--type-bg, #828282);
+    border-color: var(--type-border, #656565);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85), 0 1px 2px rgba(0, 0, 0, .25);
+}
+.locked-move[type=radio]:checked + .btn.result-move-typed,
+.locked-move[type=radio]:checked + .btn.result-move-typed:hover {
+    color: #fff;
+    background: var(--type-bg, #828282);
+    box-shadow: inset 0 0 0 2px #ffe27a, 0 1px 2px rgba(0, 0, 0, .25);
+}
+
+.result-move-type-normal { --type-bg: #828282; --type-border: #656565; }
+.result-move-type-fighting { --type-bg: #e49021; --type-border: #b2701a; }
+.result-move-type-flying { --type-bg: #74aad0; --type-border: #5a85a2; }
+.result-move-type-poison { --type-bg: #9354cb; --type-border: #73429e; }
+.result-move-type-ground { --type-bg: #a4733c; --type-border: #805a2f; }
+.result-move-type-rock { --type-bg: #a9a481; --type-border: #848065; }
+.result-move-type-bug { --type-bg: #9f9f28; --type-border: #7c7c1f; }
+.result-move-type-ghost { --type-bg: #6f4570; --type-border: #573657; }
+.result-move-type-steel { --type-bg: #74b0cb; --type-border: #5a899e; }
+.result-move-type-fire { --type-bg: #e4613e; --type-border: #b24c30; }
+.result-move-type-water { --type-bg: #3099e1; --type-border: #2577b0; }
+.result-move-type-grass { --type-bg: #439837; --type-border: #34772b; }
+.result-move-type-electric { --type-bg: #dfbc28; --type-border: #ae931f; }
+.result-move-type-psychic { --type-bg: #e96c8c; --type-border: #b6546d; }
+.result-move-type-ice { --type-bg: #47c8c8; --type-border: #379c9c; }
+.result-move-type-dragon { --type-bg: #576fbc; --type-border: #445793; }
+.result-move-type-dark { --type-bg: #4f4747; --type-border: #3e3737; }
+.result-move-type-fairy { --type-bg: #e18ce1; --type-border: #b06db0; }
+
 /* pokemon info */
 .poke-info label {
     display: inline-block;
