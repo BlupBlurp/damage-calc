@@ -407,7 +407,8 @@ export function calculateBWXY(
         move,
         field,
         hasAteAbilityTypeChange,
-        desc
+        desc,
+        times + 1
       );
       const newBaseDamage = getBaseDamage(attacker.level, newBasePower, newAtk, newDef);
       const newFinalMods = calculateFinalModsBWXY(
@@ -636,8 +637,8 @@ export function calculateBPModsBWXY(
   // The last case only applies when the Pokemon is holding the Mega Stone that matches its species
   // (or when it's already a Mega-Evolution)
   if (!resistedKnockOffDamage && defenderItem) {
-    const item = gen.items.get(toID(defenderItem))!;
-    resistedKnockOffDamage = !!(item.megaStone &&
+    const item = gen.items.get(toID(defenderItem));
+    resistedKnockOffDamage = !!(item?.megaStone &&
       (item.megaStone[defender.name] || Object.values(item.megaStone).includes(defender.name)));
   }
 
