@@ -2,6 +2,13 @@ var PC_HANDLER = function () {
 	setTimeout(performCalculations, 0);
 };
 var damageResults;
+// Selections applied while the page loads must not create history entries.
+window.RELUMI_SUPPRESS_TRAINER_HISTORY_PUSH = true;
+// Capture the entry's state before any ready handler rewrites it, so a reload
+// can restore the Pokémon that was selected rather than the trainer's lead.
+var INITIAL_HISTORY_STATE = window.history.state || {};
+// Capture the requested trainer before init handlers can rewrite the URL.
+var INITIAL_URL_PARAMS = new URLSearchParams(window.location.search);
 
 $("#p2 .ability").bind("keyup change", function () {
 	autosetWeather($(this).val(), 1);
@@ -248,15 +255,52 @@ function getFirstTrainerSetIdFromOptions(trainerId) {
 	return '';
 }
 
-function applyInitialTrainerSelectionToRight(trainerId, attempt) {
+$(window).on('popstate', function (event) {
+	window.RELUMI_RESTORING_HISTORY = true;
+	var params = new URLSearchParams(window.location.search);
+	var inGame = params.get('mode') === 'ingame' || params.get('setSource') === 'ingame';
+	if (!inGame) {
+		if (!$('#set-source-randoms').prop('checked')) {
+			$('#set-source-randoms').prop('checked', true).change();
+		}
+	} else {
+		if (!$('#set-source-ingame').prop('checked')) {
+			$('#set-source-ingame').prop('checked', true).change();
+		}
+		var trainerId = getInitialTrainerIdFromUrl();
+		var state = (event.originalEvent && event.originalEvent.state) || window.history.state || {};
+		var rightSelector = $('#p2 input.set-selector');
+		var restoredSetId = String(state.trainerId || '') === String(trainerId || '') ?
+			getTrainerSetIdFromOptions(trainerId, state.setId) : '';
+		if (restoredSetId && rightSelector.length) {
+			window.setSetSelectorAndSync(rightSelector, restoredSetId);
+		} else if (trainerId) {
+			applyInitialTrainerSelectionToRight(trainerId, 0);
+		}
+	}
+	window.RELUMI_RESTORING_HISTORY = false;
+});
+
+function getTrainerSetIdFromOptions(trainerId, setId) {
+	if (!trainerId || !setId) return '';
+	var options = getSetOptions();
+	for (var i = 0; i < options.length; i++) {
+		if (!options[i] || options[i].id !== setId) continue;
+		var match = /\(([^()]*)\)\s*$/.exec(setId);
+		return match && String(match[1]) === String(trainerId) ? setId : '';
+	}
+	return '';
+}
+
+function applyInitialTrainerSelectionToRight(trainerId, attempt, preferredSetId) {
 	if (!trainerId || (typeof window.RELUMI_MODE !== 'undefined' && !window.RELUMI_MODE)) return;
 	var tries = attempt || 0;
 	if (tries > 20) return;
 
-	var rightSelector = $('#p2 .set-selector');
+	var rightSelector = $('#p2 input.set-selector');
 	if (!rightSelector.length) {
 		setTimeout(function () {
-			applyInitialTrainerSelectionToRight(trainerId, tries + 1);
+			applyInitialTrainerSelectionToRight(trainerId, tries + 1, preferredSetId);
 		}, 50);
 		return;
 	}
@@ -265,10 +309,10 @@ function applyInitialTrainerSelectionToRight(trainerId, attempt) {
 		$('#set-source-ingame').prop('checked', true).change();
 	}
 
-	var setId = getFirstTrainerSetIdFromOptions(trainerId);
+	var setId = getTrainerSetIdFromOptions(trainerId, preferredSetId) || getFirstTrainerSetIdFromOptions(trainerId);
 	if (!setId) {
 		setTimeout(function () {
-			applyInitialTrainerSelectionToRight(trainerId, tries + 1);
+			applyInitialTrainerSelectionToRight(trainerId, tries + 1, preferredSetId);
 		}, 50);
 		return;
 	}
@@ -282,9 +326,9 @@ function applyInitialTrainerSelectionToRight(trainerId, attempt) {
 }
 
 $(document).ready(function () {
-	var params = new URLSearchParams(window.location.search);
+	var params = INITIAL_URL_PARAMS;
 	if (params.has('raw')) {
-		var redirectParams = new URLSearchParams(window.location.search);
+		var redirectParams = new URLSearchParams(INITIAL_URL_PARAMS.toString());
 		redirectParams.delete('raw');
 		var rawQuery = redirectParams.toString();
 		window.location.replace('raw.html' + (rawQuery ? '?' + rawQuery : ''));
@@ -292,7 +336,8 @@ $(document).ready(function () {
 	}
 	var m = params.get('mode');
 	var setSource = params.get('setSource');
-	var trainerId = getInitialTrainerIdFromUrl();
+	var trainerId = params.get('trainerId') || params.get('trainerID') || params.get('trainer') || params.get('teamId');
+	if (trainerId) trainerId = String(trainerId).trim();
 	$('#randoms').prop('checked', true);
 	if (setSource === 'ingame') {
 		$('#set-source-ingame').prop('checked', true);
@@ -331,11 +376,21 @@ $(document).ready(function () {
 	}
 
 	if (trainerId) {
-		applyInitialTrainerSelectionToRight(trainerId, 0);
+		var restoredSetId = String(INITIAL_HISTORY_STATE.trainerId || '') === String(trainerId) ?
+			INITIAL_HISTORY_STATE.setId || '' : '';
+		applyInitialTrainerSelectionToRight(trainerId, 0, restoredSetId);
 	}
 
 	$(".calc-trigger").bind("change keyup", PC_HANDLER);
 	performCalculations();
+	if (window.history && window.history.replaceState) {
+		// Remember the selection shown on load so Back can return to it.
+		window.history.replaceState({
+			trainerId: new URLSearchParams(window.location.search).get('trainerId') || '',
+			setId: $('#p2 input.set-selector').val() || '',
+		}, document.title, window.location.href);
+	}
+	window.RELUMI_SUPPRESS_TRAINER_HISTORY_PUSH = false;
 });
 
 /* Click-to-copy function */

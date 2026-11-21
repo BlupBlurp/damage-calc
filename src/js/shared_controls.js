@@ -125,7 +125,7 @@ function getActiveInGameTrainerId(pokeObj) {
 	if (!isInGameTeamsMode()) return null;
 	var fromStrip = pokeObj.find('.trainer-team-slot').first().attr('data-trainer-id');
 	if (fromStrip) return String(fromStrip);
-	var fullSetName = pokeObj.find('.set-selector').val();
+	var fullSetName = pokeObj.find('input.set-selector').val();
 	if (!fullSetName || fullSetName.indexOf(' (') === -1) return null;
 	var pokemonName = fullSetName.substring(0, fullSetName.indexOf(' ('));
 	var setName = fullSetName.substring(fullSetName.indexOf('(') + 1, fullSetName.lastIndexOf(')'));
@@ -1183,19 +1183,40 @@ $(".set-selector").change(function () {
 		// Sync trainerId URL when the opponent selects an in-game trainer set
 		if (RELUMI_MODE && isInGameTeamsMode() && selectedTrainerId && pokeObj.prop('id') === 'p2') {
 			var urlParams = new URLSearchParams(window.location.search);
+			var urlTrainerId = urlParams.get('trainerId');
+			var newTrainerId = String(selectedTrainerId);
 			urlParams.set('mode', 'ingame');
 			urlParams.set('setSource', 'ingame');
-			urlParams.set('trainerId', selectedTrainerId);
-			if (window.history && window.history.replaceState) {
-				window.history.replaceState({}, document.title, window.location.pathname + '?' + urlParams.toString());
+			urlParams.set('trainerId', newTrainerId);
+			var newUrl = window.location.pathname + '?' + urlParams.toString();
+			var historyState = {
+				trainerId: newTrainerId,
+				setId: pokeObj.find('input.set-selector').val() || '',
+			};
+			if (window.history && window.history.pushState) {
+				if (window.RELUMI_RESTORING_HISTORY) {
+					// The browser restored a history entry; leave its URL untouched.
+				} else if (window.RELUMI_SUPPRESS_TRAINER_HISTORY_PUSH) {
+					// While the page initializes, never overwrite a trainer requested by the
+					// URL; only add the default trainer when the URL has none.
+					if (!urlTrainerId) {
+						window.history.replaceState(historyState, document.title, newUrl);
+					}
+				} else if (String(urlTrainerId || '') !== newTrainerId) {
+					// A different trainer is a new step in history, so Back restores the previous one.
+					window.history.pushState(historyState, document.title, newUrl);
+				} else {
+					// Same trainer: keep the URL's history entry in sync with the selected set.
+					window.history.replaceState(historyState, document.title, newUrl);
+				}
 			}
 		}
 		if (RELUMI_MODE) {
 			pokeObj.find(".teraToggle").prop("checked", false);
 		}
-		var activeSetId = pokeObj.find('.set-selector').val();
+		var activeSetId = pokeObj.find('input.set-selector').val();
 		if (activeSetId) {
-			syncSetSelectorDisplay(pokeObj.find('.set-selector'), activeSetId);
+			syncSetSelectorDisplay(pokeObj.find('input.set-selector'), activeSetId);
 		}
 	}
 });
@@ -2228,15 +2249,20 @@ function formatSetSelectionLabel(option) {
 
 function syncSetSelectorDisplay(selector, setId) {
 	if (!selector || !selector.length || !setId) return;
+	// Select2 copies the element's classes onto its container, so .set-selector can
+	// match both the hidden input and the container; always use the input itself.
+	var input = selector.filter('input.set-selector').first();
+	if (!input.length) input = selector.find('input.set-selector').first();
+	if (!input.length) return;
 	var selectedOption = getSetOptionById(setId) || buildSetOptionFromId(setId);
 	if (!selectedOption) return;
 
-	selector.val(setId);
-	if (!selector.data('select2')) return;
+	input.val(setId);
+	if (!input.data('select2')) return;
 
-	selector.select2('data', selectedOption);
+	input.select2('data', selectedOption);
 	var label = formatSetSelectionLabel(selectedOption);
-	selector.parent().find('.select2-chosen').first().text(label);
+	input.parent().find('.select2-chosen').first().text(label);
 }
 
 function setSetSelectorAndSync(pokeObjOrSelector, setId) {

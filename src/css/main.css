@@ -149,11 +149,6 @@ header {
     .nav a.nav-first {
         margin-left: 0;
     }
-    .nav a.greenbutton {
-        position: absolute;
-        top: 10px;
-        left: 152px;
-    }
 }
 @media (max-width:419px) {
     .nav a {
@@ -475,9 +470,10 @@ th {
 
 /* Hide element visually, but not from screen readers. See http://adrianroselli.com/2017/05/under-engineered-custom-radio-buttons-and-checkboxen.html */
 .visually-hidden {
-    clip: rect(1px, 1px, 1px, 1px);
-    height: 1px;
-    overflow: hidden;
+	clip: rect(1px, 1px, 1px, 1px);
+	height: 1px;
+	width: 1px;
+	overflow: hidden;
     position: absolute;
     top: auto;
     white-space: nowrap; /* https://medium.com/@jessebeach/beware-smushed-off-screen-accessible-text-5952a4c2cbfe */
@@ -896,6 +892,7 @@ table.field {
     }
     .move-result-group {
         flex-direction: column;
+        gap: 1.25em;
     }
     .move-result-subgroup {
         width: 100%;
@@ -933,9 +930,29 @@ table.field {
         display: block;
         margin: 0.3em 0;
     }
+    div[aria-label="Settings"] {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 4px;
+    }
     .genSelection, .notationSelection, .modeSelection, .sourceSelection {
-        display: block;
-        margin: 3px 0;
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        position: static;
+        margin: 0;
+    }
+    .sourceSelection {
+        margin-left: 0;
+        flex-basis: 100%;
+    }
+    .modeSelection .btn {
+        width: auto;
+        min-width: 0;
+        min-height: 0;
+        padding: 5px 10px;
+        white-space: nowrap;
     }
     .poke-info table {
         font-size: 0.9em;
