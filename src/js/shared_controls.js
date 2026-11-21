@@ -35,6 +35,13 @@ function endsWith(string, target) {
 	return (string || '').slice(-target.length) === target;
 }
 
+var HTML_ESCAPES = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
+function escapeHtml(value) {
+	return String(value).replace(/[&<>"']/g, function (ch) {
+		return HTML_ESCAPES[ch];
+	});
+}
+
 var LEGACY_STATS_RBY = ["hp", "at", "df", "sl", "sp"];
 var LEGACY_STATS_GSC = ["hp", "at", "df", "sa", "sd", "sp"];
 var LEGACY_STATS = [LEGACY_STATS_GSC, LEGACY_STATS_RBY, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC, LEGACY_STATS_GSC];
@@ -44,6 +51,7 @@ var RELUMI_MODE =
 	typeof window.RELUMI_RANDOM_DOUBLES_BATTLE !== 'undefined' &&
 	typeof window.RELUMI_DEX_OVERRIDES !== 'undefined';
 var RELUMI_INGAME_MODE_AVAILABLE = typeof window.RELUMI_INGAME_TEAMS !== 'undefined';
+var RELUMI_SPRITE_BASE_URL = 'https://play.relumishowdown.dpdns.org/sprites/gen5/';
 
 if (typeof window.initRelumiTeamExportData === 'function') {
 	window.initRelumiTeamExportData();
@@ -81,17 +89,10 @@ function getTrainerSpriteName(speciesName) {
 }
 
 function getTrainerTeamRoster(trainerId) {
-	if (!trainerId) return null;
-	var id = String(trainerId);
-	if (typeof window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS !== 'undefined' &&
-		window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[id]) {
-		return window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[id];
-	}
-	if (typeof window.RELUMI_INGAME_TRAINER_TEAMS !== 'undefined' &&
-		window.RELUMI_INGAME_TRAINER_TEAMS[id]) {
-		return window.RELUMI_INGAME_TRAINER_TEAMS[id];
-	}
-	return null;
+	// Rosters are owned by relumi-team-export.js so the calculator and raw.html
+	// resolve trainer teams the same way.
+	if (typeof window.getTrainerTeamRosterForExport !== 'function') return null;
+	return window.getTrainerTeamRosterForExport(trainerId);
 }
 
 function registerCustomInGameTeam(teamId, roster) {
@@ -102,8 +103,8 @@ function registerCustomInGameTeam(teamId, roster) {
 	var teamRoster = roster.slice();
 	window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[String(teamId)] = teamRoster;
 
-	if (!localStorage.customsets) return;
-	var customsets = JSON.parse(localStorage.customsets);
+	var customsets = typeof window.readCustomSets === 'function' ? window.readCustomSets() : null;
+	if (!customsets) return;
 	for (var species in customsets) {
 		for (var setKey in customsets[species]) {
 			var set = customsets[species][setKey];
@@ -141,69 +142,12 @@ function getActiveInGameTrainerId(pokeObj) {
 	return null;
 }
 
-function rebuildCustomInGameTrainerTeamsFromStorage() {
-	if (!RELUMI_MODE) return;
-	window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS = {};
-	if (!localStorage.customsets) return;
-
-	var customsets = JSON.parse(localStorage.customsets);
-	var teamsById = {};
-	for (var species in customsets) {
-		for (var setKey in customsets[species]) {
-			var set = customsets[species][setKey];
-			if (!set || !set.isCustomSet) continue;
-			var teamId = set.trainerId ? String(set.trainerId) : String(setKey).replace(/-\d+$/, '');
-			if (!teamsById[teamId]) teamsById[teamId] = [];
-			teamsById[teamId].push({
-				species: species,
-				slot: set.teamSlot || teamsById[teamId].length + 1
-			});
-		}
-	}
-	var teamIds = Object.keys(teamsById);
-	for (var t = 0; t < teamIds.length; t++) {
-		var members = teamsById[teamIds[t]];
-		members.sort(function (a, b) { return a.slot - b.slot; });
-		var roster = [];
-		for (var m = 0; m < members.length; m++) roster.push(members[m].species);
-		if (roster.length) {
-			window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS[teamIds[t]] = roster;
-		}
-	}
-}
-
+// Set keys for trainer team members are resolved by relumi-team-export.js.
 function getTeamMemberSetId(speciesName, trainerId, slotIndex) {
-	var id = String(trainerId);
-	var occurrence = slotIndex || 0;
-
-	if (setdex[speciesName]) {
-		var customMatches = [];
-		for (var setKey in setdex[speciesName]) {
-			var set = setdex[speciesName][setKey];
-			if (!set || !set.isCustomSet) continue;
-			if (String(set.trainerId) !== id && setKey !== id && !startsWith(setKey, id + '-')) continue;
-			customMatches.push({key: setKey, slot: set.teamSlot || customMatches.length + 1});
-		}
-		if (customMatches.length) {
-			customMatches.sort(function (a, b) {return a.slot - b.slot;});
-			var customPick = customMatches[occurrence] || customMatches[0];
-			return speciesName + ' (' + customPick.key + ')';
-		}
-	}
-
-	if (typeof randdex !== 'undefined' && randdex[speciesName]) {
-		var trainerKeys = [];
-		for (var trainerKey in randdex[speciesName]) {
-			if (trainerKey === id || startsWith(trainerKey, id + '-')) {
-				trainerKeys.push(trainerKey);
-			}
-		}
-		trainerKeys.sort();
-		if (trainerKeys[occurrence]) return speciesName + ' (' + trainerKeys[occurrence] + ')';
-		if (trainerKeys[0]) return speciesName + ' (' + trainerKeys[0] + ')';
-	}
-
-	return speciesName + ' (' + id + ')';
+	var setKey = typeof window.getTeamMemberSetKey === 'function' ?
+		window.getTeamMemberSetKey(speciesName, trainerId, slotIndex) : null;
+	if (!setKey) setKey = String(trainerId);
+	return speciesName + ' (' + setKey + ')';
 }
 
 function renderTrainerTeamStrip(pokeObj, trainerId, selectedSpecies) {
@@ -230,11 +174,12 @@ function renderTrainerTeamStrip(pokeObj, trainerId, selectedSpecies) {
 		var setId = getTeamMemberSetId(memberName, trainerId, occurrence);
 		var spriteName = getTrainerSpriteName(memberName);
 		var isCurrent = memberName === selectedSpecies;
+		var safeName = escapeHtml(memberName);
 		html += '<button type="button" class="trainer-team-slot' + (isCurrent ? ' current-team-slot' : '') +
-			'" data-trainer-id="' + trainerId + '" data-species="' + memberName +
-			'" data-set-id="' + setId + '" title="' + memberName + '">';
-		html += '<img alt="' + memberName + '" src="https://play.relumishowdown.dpdns.org/sprites/gen5/' + spriteName + '.png" />';
-		html += '<span>' + memberName + '</span>';
+			'" data-trainer-id="' + escapeHtml(trainerId) + '" data-species="' + safeName +
+			'" data-set-id="' + escapeHtml(setId) + '" title="' + safeName + '">';
+		html += '<img alt="' + safeName + '" src="' + RELUMI_SPRITE_BASE_URL + spriteName + '.png" />';
+		html += '<span>' + safeName + '</span>';
 		html += '</button>';
 	}
 
@@ -315,6 +260,16 @@ $("input:radio[name='format']").change(function () {
 	$(".format-specific").not("." + gameType.toLowerCase()).hide();
 });
 
+// loadDefaultLists() rebinds Select2 on every set selector, which drops the
+// "Only show imported sets" filter; re-apply it where it was enabled.
+function reapplyImportedSetsFilter() {
+	$('.poke-info').each(function () {
+		if (!$(this).find('#importedSets').prop('checked')) return;
+		var pokeID = $(this).prop('id');
+		if (pokeID) loadCustomList(pokeID);
+	});
+}
+
 $("input:radio[name='setSource']").change(function () {
 	if (!RELUMI_MODE) return;
 	var isInGame = isInGameTeamsMode();
@@ -336,25 +291,17 @@ $("input:radio[name='setSource']").change(function () {
 	if (window.history && window.history.replaceState) {
 		window.history.replaceState({}, document.title, window.location.pathname + '?' + params.toString());
 	}
+	$('.poke-info .info-group.top > .gen-specific.g9').hide();
 	if (isInGame) {
-		$('.poke-info .info-group.top > .gen-specific.g9').hide();
 		$('.pool').hide();
 	} else {
-		$('.poke-info .info-group.top > .gen-specific.g9').hide();
 		// Restore pool visibility when switching back to Random Battles
 		$('.pool').show();
 	}
 	updateExportTeamButtonVisibility();
 	randdex = getRelumiRanddexForCurrentSource();
 	loadDefaultLists();
-	// Re-apply "Only show imported sets" state that loadDefaultLists would have overwritten
-	$('.poke-info').each(function () {
-		var checked = $(this).find('#importedSets').prop('checked');
-		if (checked) {
-			var pokeID = $(this).prop('id');
-			if (pokeID) loadCustomList(pokeID);
-		}
-	});
+	reapplyImportedSetsFilter();
 	var firstSet = getFirstValidSetOption();
 	// In-game teams mode starts with an empty left side so a team can be built from scratch
 	var blankSet = isInGame ? getSetOptionById('(No Pokemon) (Blank Set)') : null;
@@ -1012,7 +959,7 @@ $(".set-selector").change(function () {
 			}
 			pokeObj.find(".gmaxToggle").prop("checked", pokemon.canGigantamax && set.isGmax || false);
 			pokeObj.find(".level").val(set.level === undefined ? 100 : set.level);
-			var evsDefault = gen < 3 ? 252 : ($("#randoms").prop("checked") ? 84 : 0);
+			var defaultEvs = gen < 3 ? 252 : ($("#randoms").prop("checked") ? 84 : 0);
 			for (i = 0; i < LEGACY_STATS[gen].length; i++) {
 				var legacyStat = LEGACY_STATS[gen][i];
 				var stat = $("#randoms").prop("checked") ? legacyStatToStat(legacyStat) : legacyStat;
@@ -1032,7 +979,7 @@ $(".set-selector").change(function () {
 					if (dvValue === undefined) dvValue = set.dvs[legacyStat];
 				}
 				pokeObj.find("." + LEGACY_STATS[gen][i] + " .evs").val(
-					evValue !== undefined ? evValue : ($("#randoms").prop("checked") ? 84 : 0));
+					evValue !== undefined ? evValue : defaultEvs);
 				if ($("#champions").prop("checked") && !set.sps) {
 					var sps = set.evs && set.evs[stat] !== undefined ? set.evs[stat] : 0;
 					if (sps === 4) sps = 1;
@@ -1043,6 +990,9 @@ $(".set-selector").change(function () {
 					ivValue !== undefined ? ivValue : 31);
 				pokeObj.find("." + LEGACY_STATS[gen][i] + " .dvs").val(
 					dvValue !== undefined ? dvValue : 15);
+				if (set.sps) {
+					pokeObj.find("." + LEGACY_STATS[gen][i] + " .sps").val(set.sps[stat] !== undefined ? set.sps[stat] : 0);
+				}
 			}
 			setSelectValueIfValid(pokeObj.find(".nature"), set.nature, "Hardy");
 			var abilityFallback = (typeof pokemon.abilities !== "undefined") ? pokemon.abilities[0] : "";
@@ -1237,7 +1187,8 @@ $(document).on('click', '.trainer-team-slot', function () {
 function formatMovePool(moves) {
 	var formatted = [];
 	for (var i = 0; i < moves.length; i++) {
-		formatted.push(isKnownDamagingMove(moves[i]) ? moves[i] : '<i>' + moves[i] + '</i>');
+		var moveName = escapeHtml(moves[i]);
+		formatted.push(isKnownDamagingMove(moves[i]) ? moveName : '<i>' + moveName + '</i>');
 	}
 	return formatted.join(', ');
 }
@@ -2464,15 +2415,16 @@ function loadDefaultLists() {
 	$(".set-selector").select2({
 		formatResult: function (object) {
 			if ($("#randoms").prop("checked")) {
-				if (!object.set) return "<b>" + object.pokemon + "</b>";
+				if (!object.set) return "<b>" + escapeHtml(object.pokemon) + "</b>";
 				var suffix = object.set === 'Randoms Set' ? 'Randoms' : object.set;
-				return "&nbsp;&nbsp;&nbsp;" + object.pokemon + " (" + suffix + ")" + (object.isCustom ? " [Custom]" : "");
+				return "&nbsp;&nbsp;&nbsp;" + escapeHtml(object.pokemon) + " (" + escapeHtml(suffix) + ")" +
+					(object.isCustom ? " [Custom]" : "");
 			} else {
-				return object.set ? ("&nbsp;&nbsp;&nbsp;" + object.set) : ("<b>" + object.text + "</b>");
+				return object.set ? ("&nbsp;&nbsp;&nbsp;" + escapeHtml(object.set)) : ("<b>" + escapeHtml(object.text) + "</b>");
 			}
 		},
 		formatSelection: function (object) {
-			return formatSetSelectionLabel(object);
+			return escapeHtml(formatSetSelectionLabel(object));
 		},
 		query: function (query) {
 			var pageSize = 30;
@@ -2520,10 +2472,10 @@ function loadCustomList(id) {
 	var currentVal = selector.val();
 	selector.select2({
 		formatResult: function (set) {
-			return formatSetSelectionLabel(set) || (set.nickname ? set.pokemon + " (" + set.nickname + ")" : set.id);
+			return escapeHtml(formatSetSelectionLabel(set) || (set.nickname ? set.pokemon + " (" + set.nickname + ")" : set.id));
 		},
 		formatSelection: function (set) {
-			return formatSetSelectionLabel(set) || set.id || '';
+			return escapeHtml(formatSetSelectionLabel(set) || set.id || '');
 		},
 		query: function (query) {
 			var pageSize = 30;
@@ -2561,11 +2513,10 @@ window.syncSetSelectorDisplay = syncSetSelectorDisplay;
 window.getTrainerTeamRoster = getTrainerTeamRoster;
 window.getActiveInGameTrainerId = getActiveInGameTrainerId;
 window.registerCustomInGameTeam = registerCustomInGameTeam;
-window.rebuildCustomInGameTrainerTeamsFromStorage = rebuildCustomInGameTrainerTeamsFromStorage;
+window.reapplyImportedSetsFilter = reapplyImportedSetsFilter;
 window.updateExportTeamButtonVisibility = updateExportTeamButtonVisibility;
 
 $(document).ready(function () {
-	rebuildCustomInGameTrainerTeamsFromStorage();
 	updateExportTeamButtonVisibility();
 	var params = new URLSearchParams(window.location.search);
 	var g = GENERATION[params.get('gen')] || 9;

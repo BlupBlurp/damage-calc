@@ -266,6 +266,22 @@ function getMoves(currentPoke, rows, x) {
 	return currentPoke;
 }
 
+function readCustomSets() {
+	if (!localStorage.customsets) return {};
+	try {
+		return JSON.parse(localStorage.customsets) || {};
+	} catch (e) {
+		return {};
+	}
+}
+window.readCustomSets = readCustomSets;
+
+// Showdown pastes omit stats at their default, so imported sets without an EV
+// line must use 0 EVs rather than the random-battle 84-EV default.
+function zeroLegacyEvs() {
+	return {hp: 0, at: 0, df: 0, sa: 0, sd: 0, sp: 0};
+}
+
 function addToDex(poke) {
 	var dexObject = {};
 	if (poke.ability !== undefined) {
@@ -276,7 +292,7 @@ function addToDex(poke) {
 	}
 	dexObject.isGmax = poke.isGmax;
 	dexObject.level = poke.level;
-	dexObject.evs = poke.evs;
+	dexObject.evs = poke.evs || zeroLegacyEvs();
 	dexObject.ivs = poke.ivs;
 	dexObject.dvs = poke.dvs;
 	if (poke.sps !== undefined) {
@@ -290,12 +306,7 @@ function addToDex(poke) {
 	if (poke.trainerId) dexObject.trainerId = poke.trainerId;
 	if (poke.team) dexObject.team = poke.team;
 	if (poke.teamSlot) dexObject.teamSlot = poke.teamSlot;
-	var customsets;
-	if (localStorage.customsets) {
-		customsets = JSON.parse(localStorage.customsets);
-	} else {
-		customsets = {};
-	}
+	var customsets = readCustomSets();
 	if (!customsets[poke.name]) {
 		customsets[poke.name] = {};
 	}
@@ -353,9 +364,7 @@ window.updateDex = updateDex;
 
 function getNextCustomImportName() {
 	var base = 'Custom Set';
-	if (!localStorage.customsets) return base;
-
-	var customsets = JSON.parse(localStorage.customsets);
+	var customsets = readCustomSets();
 	var used = {};
 	for (var species in customsets) {
 		for (var setKey in customsets[species]) {
@@ -382,11 +391,11 @@ function setImportNameFields(name) {
 	}
 }
 
-function resolveCustomInGameSetKey(customsets, speciesName, teamId) {
-	if (!customsets[speciesName] || !customsets[speciesName][teamId]) return teamId;
+function makeUniqueSetKey(customsets, speciesName, desiredKey) {
+	if (!customsets[speciesName] || !customsets[speciesName][desiredKey]) return desiredKey;
 	var slot = 2;
-	while (customsets[speciesName][teamId + '-' + slot]) slot++;
-	return teamId + '-' + slot;
+	while (customsets[speciesName][desiredKey + '-' + slot]) slot++;
+	return desiredKey + '-' + slot;
 }
 
 function addSets(pokes, name) {
@@ -395,9 +404,11 @@ function addSets(pokes, name) {
 	var species;
 	var currentPoke;
 	var addedPokes = 0;
-	var ingameTeamId = name;
+	// Every set in one import belongs to the same trainer team, even when the
+	// individual sets are nicknamed.
+	var teamId = name;
 	var ingameTeamRoster = [];
-	var customsets = localStorage.customsets ? JSON.parse(localStorage.customsets) : {};
+	var customsets = readCustomSets();
 	for (var i = 0; i < rows.length; i++) {
 		species = findSpecies(rows[i]);
 		if (species.offset !== undefined) {
@@ -411,23 +422,20 @@ function addSets(pokes, name) {
 			if (currentRow[species.offset].trim().endsWith('-Gmax')) currentPoke.isGmax = true;
 			if (species.offset === 1 && currentRow[0].trim()) {
 				currentPoke.nameProp = currentRow[0].trim();
-				ingameTeamId = currentPoke.nameProp;
 			} else {
 				currentPoke.nameProp = name;
 			}
 			currentPoke.isCustomSet = true;
 			// Always assign trainer/team metadata so imported sets are grouped as a team in any source mode
-			currentPoke.trainerId = ingameTeamId;
+			currentPoke.trainerId = teamId;
 			currentPoke.teamSlot = ingameTeamRoster.length + 1;
 			if (customsets[currentPoke.name] && customsets[currentPoke.name][currentPoke.nameProp]) {
-				currentPoke.nameProp = resolveCustomInGameSetKey(customsets, currentPoke.name, ingameTeamId);
+				currentPoke.nameProp = makeUniqueSetKey(customsets, currentPoke.name, currentPoke.nameProp);
 			}
 			ingameTeamRoster.push(currentPoke.name);
 			addToDex(currentPoke);
-			// Refresh customsets snapshot after addToDex in case the same species appears again in this import batch
-			if (localStorage.customsets) {
-				customsets = JSON.parse(localStorage.customsets);
-			}
+			// Refresh the snapshot after addToDex persisted the set under its final key.
+			customsets = readCustomSets();
 			addedPokes++;
 		}
 	}
@@ -435,19 +443,14 @@ function addSets(pokes, name) {
 		// Register the team for trainer-team-strip rendering in both source modes
 		if (ingameTeamRoster.length &&
 			typeof window.registerCustomInGameTeam === 'function') {
-			window.registerCustomInGameTeam(ingameTeamId, ingameTeamRoster);
+			window.registerCustomInGameTeam(teamId, ingameTeamRoster);
 		}
 		alert("Successfully imported " + addedPokes + (addedPokes === 1 ? " set" : " sets"));
 		setImportNameFields(getNextCustomImportName());
 		loadDefaultLists();
-		// Re-apply "Only show imported sets" filter that loadDefaultLists would have overwritten
-		$('.poke-info').each(function () {
-			var checked = $(this).find('#importedSets').prop('checked');
-			if (checked) {
-				var pokeID = $(this).prop('id');
-				if (pokeID) loadCustomList(pokeID);
-			}
-		});
+		if (typeof window.reapplyImportedSetsFilter === 'function') {
+			window.reapplyImportedSetsFilter();
+		}
 		$(allPokemon("#importedSetsOptions")).css("display", "inline");
 	} else {
 		alert("No sets imported, please check your syntax and try again");
@@ -689,11 +692,9 @@ $(allPokemon("#importedSets")).click(function () {
 });
 
 $(document).ready(function () {
-	var customSets;
 	placeBsBtn();
 	if (localStorage.customsets) {
-		customSets = JSON.parse(localStorage.customsets);
-		updateDex(customSets);
+		updateDex(readCustomSets());
 		if (typeof window.rebuildCustomInGameTrainerTeamsFromStorage === 'function') {
 			window.rebuildCustomInGameTrainerTeamsFromStorage();
 		}

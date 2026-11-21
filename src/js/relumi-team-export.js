@@ -9,6 +9,16 @@
 		return (str || '').slice(0, prefix.length) === prefix;
 	}
 
+	// Returns null instead of throwing when the stored custom sets are corrupt.
+	function readCustomSets() {
+		if (!window.localStorage || !localStorage.customsets) return null;
+		try {
+			return JSON.parse(localStorage.customsets) || {};
+		} catch (e) {
+			return null;
+		}
+	}
+
 	function normalizeInGameTeamData() {
 		if (typeof window.RELUMI_INGAME_TEAMS === 'undefined') return;
 		var COSMETIC_BASES = ['Furfrou', 'Arbok', 'Magikarp', 'Vivillon', 'Minior', 'Alcremie', 'Smeargle'];
@@ -67,9 +77,9 @@
 
 	function rebuildCustomInGameTrainerTeamsFromStorage() {
 		window.RELUMI_CUSTOM_INGAME_TRAINER_TEAMS = {};
-		if (!window.localStorage || !localStorage.customsets) return;
+		var customsets = readCustomSets();
+		if (!customsets) return;
 
-		var customsets = JSON.parse(localStorage.customsets);
 		var teamsById = {};
 		for (var species in customsets) {
 			for (var setKey in customsets[species]) {
@@ -162,11 +172,7 @@
 	}
 
 	function serializeStats(array, separator) {
-		var text = '';
-		for (var i = 0; i < array.length; i++) {
-			text += (i < array.length - 1) ? array[i] + separator : array[i];
-		}
-		return text;
+		return array.join(separator);
 	}
 
 	function formatSetAsShowdown(speciesName, set) {
@@ -244,4 +250,6 @@
 	window.initRelumiTeamExportData = initRelumiTeamExportData;
 	window.exportInGameTeamText = exportInGameTeamText;
 	window.getTrainerTeamRosterForExport = getTrainerTeamRoster;
+	window.getTeamMemberSetKey = resolveTeamMemberSetKey;
+	window.rebuildCustomInGameTrainerTeamsFromStorage = rebuildCustomInGameTrainerTeamsFromStorage;
 })();

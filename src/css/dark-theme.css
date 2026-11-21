@@ -212,7 +212,7 @@ input.select2-input {
 }
 .trainer-team-slot {
     background: linear-gradient(to bottom, #3a3d45, #2b2c31);
-    color: var(--text);
+    color: inherit;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .trainer-team-slot:hover {
@@ -224,4 +224,8 @@ input.select2-input {
     border-color: #5897fb;
     background: linear-gradient(to bottom, #2e3a55, #232e51);
     box-shadow: 0 0 0 1.5px rgba(88, 151, 251, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.trainer-team-slot:focus-visible {
+    outline: 2px solid #5897fb;
+    outline-offset: 1px;
 }

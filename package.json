@@ -34,13 +34,14 @@
   "scripts": {
     "dev-relumi": "npm run sync-relumi-data && npm run build && node server.js",
     "sync-relumi-data": "node scripts/generate-relumi-data.js",
+    "test:relumi": "node scripts/test-relumi-team-export.js",
     "lint": "subpkg run lint && eslint --cache src --ext js",
     "fix": "subpkg run fix && eslint --fix src --ext js",
     "compile": "subpkg run compile && node build view",
     "bundle": "subpkg run bundle",
     "build": "subpkg run build && node build view",
     "build-ui": "node build view",
-    "test": "subpkg run test && npm run build && eslint --cache src --ext js",
+    "test": "subpkg run test && npm run test:relumi && npm run build && eslint --cache src --ext js",
     "postinstall": "subpkg install"
   },
   "subPackages": [

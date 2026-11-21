@@ -13,9 +13,40 @@ const trainerTablePath = path.join(showdownRoot, 'game-files', 'TrainerTable.ass
 const abilityNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_tokusei.asset');
 const moveNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_wazaname.asset');
 
-const {Dex} = require(path.join(showdownRoot, 'dist', 'sim', 'dex'));
+function requireShowdownFile(filePath, label) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(
+      `Missing ${label}: ${filePath}\n` +
+      'Relumi data is generated from a pokemon-showdown checkout in the directory next to this one. ' +
+      'Clone and build it first.'
+    );
+  }
+  return filePath;
+}
+
+for (const [filePath, label] of [
+  [relumiSinglesPath, 'Relumi random battle sets'],
+  [relumiDoublesPath, 'Relumi doubles random battle sets'],
+  [trainerTablePath, 'TrainerTable.asset'],
+  [abilityNamesPath, 'english_ss_tokusei.asset'],
+  [moveNamesPath, 'english_ss_wazaname.asset'],
+]) {
+  requireShowdownFile(filePath, label);
+}
+
+const showdownDexPath = path.join(showdownRoot, 'dist', 'sim', 'dex');
+let Dex;
+try {
+  ({Dex} = require(showdownDexPath));
+} catch (err) {
+  throw new Error(
+    `Could not load the Pokémon Showdown dex from ${showdownDexPath}. ` +
+    'Build the sibling pokemon-showdown checkout with `node build` first.'
+  );
+}
 const yaml = loadYaml();
 const dex = Dex.mod('gen8relumi');
+const ALL_SPECIES = dex.species.all();
 
 const NATURE_NAMES_BY_ID = [
   'Hardy',
@@ -50,7 +81,14 @@ function loadYaml() {
     return require('js-yaml');
   } catch (err) {
     // fall back to the Showdown checkout's copy, where js-yaml is a declared dependency
-    return require(require.resolve('js-yaml', {paths: [showdownRoot]}));
+    try {
+      return require(require.resolve('js-yaml', {paths: [showdownRoot]}));
+    } catch (resolveErr) {
+      throw new Error(
+        'js-yaml is required to read the Showdown data assets. Install it here or in the sibling ' +
+        'pokemon-showdown checkout.'
+      );
+    }
   }
 }
 
@@ -121,8 +159,7 @@ function normalizeTrainerIvs(rawIvs) {
 }
 
 function getSpeciesByMonsAndForm(monsNo, formNo) {
-  const allSpecies = dex.species.all();
-  const base = allSpecies.find(sp => sp?.exists && sp.num === monsNo && (!sp.forme || sp.baseSpecies === sp.name));
+  const base = ALL_SPECIES.find(sp => sp?.exists && sp.num === monsNo && (!sp.forme || sp.baseSpecies === sp.name));
   if (!base) return null;
   if (!formNo) return base;
 

@@ -338,30 +338,28 @@ $(document).ready(function () {
 	var setSource = params.get('setSource');
 	var trainerId = params.get('trainerId') || params.get('trainerID') || params.get('trainer') || params.get('teamId');
 	if (trainerId) trainerId = String(trainerId).trim();
-	$('#randoms').prop('checked', true);
-	if (setSource === 'ingame') {
-		$('#set-source-ingame').prop('checked', true);
-	} else {
-		$('#set-source-randoms').prop('checked', true);
-	}
-	if ($('#set-source-ingame').prop('checked')) {
-		$('#set-source-ingame').change();
-	} else {
-		$('#set-source-randoms').change();
+	// Choose the source once, up front: switching to Random Battles strips the
+	// trainerId from the URL, which would discard a trainer requested by a
+	// mode=ingame link before the trainer is applied.
+	var inGameSource = setSource === 'ingame' || m === 'ingame' || !!trainerId;
+	var relumiMode = typeof window.RELUMI_MODE !== 'undefined' && window.RELUMI_MODE;
+	// Only the Relumi pages are pinned to Random Battles; champions.html and
+	// oms.html share this script but keep their own default mode.
+	if (relumiMode) {
+		$('#randoms').prop('checked', true);
+		$('#set-source-' + (inGameSource ? 'ingame' : 'randoms')).prop('checked', true).change();
 	}
 	if (m) {
 		if (m !== 'one-vs-one' && m !== 'randoms' && m !== 'ingame') {
 			window.location.replace('honkalculate.html?' + params);
-		} else {
-			if (m === 'one-vs-one') {
-				window.location.replace('index.html?' + params);
+		} else if (!relumiMode) {
+			if ($('#randoms').prop('checked')) {
+				if (m === 'one-vs-one') window.location.replace('index.html?' + params);
+			} else if (m === 'randoms') {
+				window.location.replace('randoms.html?' + params);
 			}
-			if (m === 'ingame') {
-				$('#set-source-ingame').prop('checked', true).change();
-			}
-			if (m === 'randoms') {
-				$('#set-source-randoms').prop('checked', true).change();
-			}
+		} else if (m === 'one-vs-one') {
+			window.location.replace('index.html?' + params);
 		}
 	}
 
@@ -386,7 +384,7 @@ $(document).ready(function () {
 	if (window.history && window.history.replaceState) {
 		// Remember the selection shown on load so Back can return to it.
 		window.history.replaceState({
-			trainerId: new URLSearchParams(window.location.search).get('trainerId') || '',
+			trainerId: getInitialTrainerIdFromUrl() || '',
 			setId: $('#p2 input.set-selector').val() || '',
 		}, document.title, window.location.href);
 	}

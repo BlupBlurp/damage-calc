@@ -793,7 +793,6 @@ export function calculateBasePowerSMSSSV(
   hit = 1,
 ) {
   const turnOrder = attacker.stats.spe > defender.stats.spe ? 'first' : 'last';
-  const hasMegaSol = attacker.hasAbility('Mega Sol');
 
   let basePower: number;
 
@@ -1674,7 +1673,6 @@ function calculateBaseDamageSMSSSV(
   isCritical = false,
 ) {
   let baseDamage = getBaseDamage(attacker.level, basePower, attack, defense);
-  const hasMegaSol = attacker.hasAbility('Mega Sol');
   const isSpread = field.gameType !== 'Singles' &&
      ['allAdjacent', 'allAdjacentFoes'].includes(move.target);
   if (isSpread) {
