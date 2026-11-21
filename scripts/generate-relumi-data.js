@@ -12,6 +12,10 @@ const relumiDoublesPath = path.join(showdownRoot, 'data', 'random-battles', 'gen
 const trainerTablePath = path.join(showdownRoot, 'game-files', 'TrainerTable.asset');
 const abilityNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_tokusei.asset');
 const moveNamesPath = path.join(showdownRoot, 'game-files', 'english_ss_wazaname.asset');
+const towerTrainerTablePath = path.join(showdownRoot, 'game-files', 'TowerTrainerTable.asset');
+const towerSingleStockPath = path.join(showdownRoot, 'game-files', 'TowerSingleStockTable.asset');
+const towerDoubleStockPath = path.join(showdownRoot, 'game-files', 'TowerDoubleStockTable.asset');
+const towerMatchingPath = path.join(showdownRoot, 'game-files', 'TowerMatchingTable.asset');
 
 function requireShowdownFile(filePath, label) {
   if (!fs.existsSync(filePath)) {
@@ -30,6 +34,10 @@ for (const [filePath, label] of [
   [trainerTablePath, 'TrainerTable.asset'],
   [abilityNamesPath, 'english_ss_tokusei.asset'],
   [moveNamesPath, 'english_ss_wazaname.asset'],
+  [towerTrainerTablePath, 'TowerTrainerTable.asset'],
+  [towerSingleStockPath, 'TowerSingleStockTable.asset'],
+  [towerDoubleStockPath, 'TowerDoubleStockTable.asset'],
+  [towerMatchingPath, 'TowerMatchingTable.asset'],
 ]) {
   requireShowdownFile(filePath, label);
 }
@@ -220,6 +228,195 @@ function getFallbackLevelUpMoves(species, level) {
   return learnedAtLevel.slice(-4).map(entry => entry.name);
 }
 
+// One trainer slot (TrainerTable's P1..P6 fields) or one battle tower
+// TrainerPoke row (the same fields without the slot prefix).
+function buildTrainerPokeSet(row, prefix, trainerId, itemNameByNo, abilityNames, moveNames) {
+  const monsNo = Number(row[`${prefix}MonsNo`] || 0);
+  if (!monsNo) return null;
+
+  const formNo = Number(row[`${prefix}FormNo`] || 0);
+  const species = getSpeciesByMonsAndForm(monsNo, formNo);
+  if (!species || !species.exists || !species.name) return null;
+
+  const level = Number(row[`${prefix}Level`] || 100);
+  const levelUpMovePool = getFallbackLevelUpMoves(species, level);
+  const moveList = [];
+  for (let m = 1; m <= 4; m++) {
+    const moveNo = Number(row[`${prefix}Waza${m}`] || 0);
+    if (moveNo) {
+      const moveName = (moveNames.get(moveNo) || '').trim();
+      if (!moveName || moveName === '---') continue;
+      const move = dex.moves.get(moveName);
+      if (!move?.exists || !move.name || moveList.includes(move.name)) continue;
+      moveList.push(move.name);
+    } else {
+      for (const poolMove of levelUpMovePool) {
+        if (!moveList.includes(poolMove)) {
+          moveList.push(poolMove);
+          break;
+        }
+      }
+    }
+  }
+  if (!moveList.length) {
+    moveList.push(...levelUpMovePool);
+  }
+
+  const abilityNo = Number(row[`${prefix}Tokusei`] || 0);
+  const abilityName = (abilityNames.get(abilityNo) || '').trim();
+  const ability = dex.abilities.get(abilityName);
+  const fallbackAbilities = Object.values(species.abilities || {}).filter(Boolean);
+  const abilities = ability?.exists ? [ability.name] : (fallbackAbilities.length ? [fallbackAbilities[0]] : ['No Ability']);
+
+  const itemNo = Number(row[`${prefix}Item`] || 0);
+  const itemName = itemNameByNo.get(itemNo);
+
+  const natureNo = Number(row[`${prefix}Seikaku`] || 0);
+  const natureName = NATURE_NAMES_BY_ID[natureNo] || 'Hardy';
+
+  const evs = normalizeTrainerEvs({
+    hp: row[`${prefix}EffortHp`],
+    atk: row[`${prefix}EffortAtk`],
+    def: row[`${prefix}EffortDef`],
+    spa: row[`${prefix}EffortSpAtk`],
+    spd: row[`${prefix}EffortSpDef`],
+    spe: row[`${prefix}EffortAgi`],
+  });
+  const ivs = normalizeTrainerIvs({
+    hp: row[`${prefix}TalentHp`],
+    atk: row[`${prefix}TalentAtk`],
+    def: row[`${prefix}TalentDef`],
+    spa: row[`${prefix}TalentSpAtk`],
+    spd: row[`${prefix}TalentSpDef`],
+    spe: row[`${prefix}TalentAgi`],
+  });
+
+  const set = {
+    level,
+    abilities,
+    items: itemName ? [itemName] : [],
+    nature: natureName,
+    moves: moveList,
+    teraTypes: species.types ? species.types.slice() : ['Normal'],
+    role: 'Trainer Team',
+    trainerId,
+  };
+  if (evs) set.evs = evs;
+  if (ivs) set.ivs = ivs;
+
+  return {speciesName: species.name, set};
+}
+
+// Battle tower opponents come from TowerTrainerTable: TrainerData names them
+// and TrainerPoke holds one fixed Pokémon per row. A stock row pairs one or two
+// trainers with 3-4 TrainerPoke rows, and TowerMatchingTable lists the stock
+// range each rank and round draws from, so only those rows are reachable.
+// Team keys are `bt-<trainerIndex>`; a trainer with more than one team gets
+// `bt-<trainerIndex>-<teamNumber>` for the later ones so ids stay unique.
+function buildBattleTowerTeams(itemNameByNo, abilityNames, moveNames) {
+  const trainerTable = readYamlAsset(towerTrainerTablePath);
+  const trainerRows = trainerTable.TrainerData || [];
+  const pokeRows = new Map();
+  for (const row of trainerTable.TrainerPoke || []) {
+    const id = Number(row.ID || 0);
+    if (id) pokeRows.set(id, row);
+  }
+
+  const stockRows = [
+    readYamlAsset(towerSingleStockPath).TowerSingleStock || [],
+    readYamlAsset(towerDoubleStockPath).TowerDoubleStock || [],
+  ];
+  const matchingRows = readYamlAsset(towerMatchingPath).TowerMatching || [];
+
+  // Matching ids pack rule (1 single / 2 double), class (1 Normal / 2 Master),
+  // rank and round; only valid rows describe reachable stock.
+  const stockRanges = [];
+  for (const row of matchingRows) {
+    const matchingId = Number(row.ID || 0);
+    const rule = Math.floor(matchingId / 10000);
+    const towerClass = Math.floor(matchingId / 1000) % 10;
+    const rank = Math.floor(matchingId / 10) % 100;
+    const roundNo = matchingId % 10;
+    if ((rule !== 1 && rule !== 2) || (towerClass !== 1 && towerClass !== 2) || !rank || !roundNo) continue;
+    stockRanges.push({
+      rule,
+      min: Number(row.StockIDMin || 0),
+      max: Number(row.StockIDMax || 0),
+    });
+  }
+
+  const reachableStockIds = new Set();
+  for (const range of stockRanges) {
+    for (const row of stockRows[range.rule - 1]) {
+      const stockId = Number(row.ID || 0);
+      if (stockId >= range.min && stockId <= range.max) {
+        reachableStockIds.add(`${range.rule}:${stockId}`);
+      }
+    }
+  }
+
+  const setsBySpecies = {};
+  const trainerTeams = {};
+  const teamCounts = {};
+  const pokeMembers = new Map();
+
+  function getPokeMember(pokeId) {
+    if (pokeMembers.has(pokeId)) return pokeMembers.get(pokeId);
+    const row = pokeRows.get(pokeId);
+    const member = row ? buildTrainerPokeSet(row, '', '', itemNameByNo, abilityNames, moveNames) : null;
+    pokeMembers.set(pokeId, member);
+    return member;
+  }
+
+  for (const rule of [1, 2]) {
+    for (const row of stockRows[rule - 1]) {
+      const stockId = Number(row.ID || 0);
+      if (!reachableStockIds.has(`${rule}:${stockId}`)) continue;
+
+      // A double stock row lists two trainers and uses -1 for an empty slot.
+      const trainerIds = Array.isArray(row.TrainerID) ? row.TrainerID : [row.TrainerID];
+      const trainerIndexes = [];
+      for (const value of trainerIds) {
+        const trainerIndex = Number(value);
+        if (!Number.isInteger(trainerIndex) || trainerIndex < 0 || trainerIndex >= trainerRows.length) continue;
+        if (!trainerIndexes.includes(trainerIndex)) trainerIndexes.push(trainerIndex);
+      }
+      if (!trainerIndexes.length) continue;
+
+      const members = [];
+      for (const value of row.PokeID || []) {
+        const member = getPokeMember(Number(value || 0));
+        if (member) members.push(member);
+      }
+      if (!members.length) continue;
+
+      const roster = members.map(member => member.speciesName);
+      for (const trainerIndex of trainerIndexes) {
+        const teamNumber = (teamCounts[trainerIndex] || 0) + 1;
+        teamCounts[trainerIndex] = teamNumber;
+        const teamKey = teamNumber === 1 ?
+          `bt-${trainerIndex}` : `bt-${trainerIndex}-${teamNumber}`;
+        trainerTeams[teamKey] = roster.slice();
+
+        for (let slot = 0; slot < members.length; slot++) {
+          const speciesName = members[slot].speciesName;
+          if (!setsBySpecies[speciesName]) setsBySpecies[speciesName] = {};
+          // Two formes that normalize to one species still need distinct keys.
+          const setKey = setsBySpecies[speciesName][teamKey] ?
+            `${teamKey}-s${slot + 1}` : teamKey;
+          const set = Object.assign({}, members[slot].set);
+          set.trainerId = teamKey;
+          set.team = roster.slice();
+          set.teamSlot = slot + 1;
+          setsBySpecies[speciesName][setKey] = set;
+        }
+      }
+    }
+  }
+
+  return {setsBySpecies, trainerTeams};
+}
+
 function buildInGameTeams() {
   const trainerTable = readYamlAsset(trainerTablePath);
   const abilityNames = extractIndexedNames(readYamlAsset(abilityNamesPath).labelDataArray || []);
@@ -241,82 +438,12 @@ function buildInGameTeams() {
 
     const members = [];
     for (let slot = 1; slot <= 6; slot++) {
-      const monsNo = Number(row[`P${slot}MonsNo`] || 0);
-      if (!monsNo) continue;
-
-      const formNo = Number(row[`P${slot}FormNo`] || 0);
-      const species = getSpeciesByMonsAndForm(monsNo, formNo);
-      if (!species || !species.exists || !species.name) continue;
-
-      let moveList = [];
-      const levelUpMovePool = getFallbackLevelUpMoves(species, Number(row[`P${slot}Level`] || 100));
-      for (let m = 1; m <= 4; m++) {
-        const moveNo = Number(row[`P${slot}Waza${m}`] || 0);
-        if (moveNo) {
-          const moveName = (moveNames.get(moveNo) || '').trim();
-          if (!moveName || moveName === '---') continue;
-          const move = dex.moves.get(moveName);
-          if (!move?.exists || !move.name || moveList.includes(move.name)) continue;
-          moveList.push(move.name);
-        } else {
-          for (const poolMove of levelUpMovePool) {
-            if (!moveList.includes(poolMove)) {
-              moveList.push(poolMove);
-              break;
-            }
-          }
-        }
-      }
-      if (!moveList.length) {
-        moveList = levelUpMovePool;
-      }
-
-      const abilityNo = Number(row[`P${slot}Tokusei`] || 0);
-      const abilityName = (abilityNames.get(abilityNo) || '').trim();
-      const ability = dex.abilities.get(abilityName);
-      const fallbackAbilities = Object.values(species.abilities || {}).filter(Boolean);
-      const abilities = ability?.exists ? [ability.name] : (fallbackAbilities.length ? [fallbackAbilities[0]] : ['No Ability']);
-
-      const itemNo = Number(row[`P${slot}Item`] || 0);
-      const itemName = itemNameByNo.get(itemNo);
-
-      const natureNo = Number(row[`P${slot}Seikaku`] || 0);
-      const natureName = NATURE_NAMES_BY_ID[natureNo] || 'Hardy';
-
-      const evs = normalizeTrainerEvs({
-        hp: row[`P${slot}EffortHp`],
-        atk: row[`P${slot}EffortAtk`],
-        def: row[`P${slot}EffortDef`],
-        spa: row[`P${slot}EffortSpAtk`],
-        spd: row[`P${slot}EffortSpDef`],
-        spe: row[`P${slot}EffortAgi`],
-      });
-      const ivs = normalizeTrainerIvs({
-        hp: row[`P${slot}TalentHp`],
-        atk: row[`P${slot}TalentAtk`],
-        def: row[`P${slot}TalentDef`],
-        spa: row[`P${slot}TalentSpAtk`],
-        spd: row[`P${slot}TalentSpDef`],
-        spe: row[`P${slot}TalentAgi`],
-      });
-
-      const set = {
-        level: Number(row[`P${slot}Level`] || 100),
-        abilities,
-        items: itemName ? [itemName] : [],
-        nature: natureName,
-        moves: moveList,
-        teraTypes: species.types ? species.types.slice() : ['Normal'],
-        role: 'Trainer Team',
-        trainerId,
-      };
-      if (evs) set.evs = evs;
-      if (ivs) set.ivs = ivs;
-
+      const member = buildTrainerPokeSet(row, `P${slot}`, trainerId, itemNameByNo, abilityNames, moveNames);
+      if (!member) continue;
       members.push({
-        speciesName: species.name,
+        speciesName: member.speciesName,
         slot,
-        set,
+        set: member.set,
       });
     }
 
@@ -336,6 +463,13 @@ function buildInGameTeams() {
       setsBySpecies[member.speciesName][setName] = member.set;
     }
   }
+
+  const towerTeams = buildBattleTowerTeams(itemNameByNo, abilityNames, moveNames);
+  for (const speciesName in towerTeams.setsBySpecies) {
+    if (!setsBySpecies[speciesName]) setsBySpecies[speciesName] = {};
+    Object.assign(setsBySpecies[speciesName], towerTeams.setsBySpecies[speciesName]);
+  }
+  Object.assign(trainerTeams, towerTeams.trainerTeams);
 
   return {setsBySpecies, trainerTeams};
 }
@@ -534,7 +668,10 @@ function main() {
     items,
   });
 
-  console.log('Generated Relumi random sets, in-game trainer teams, and dex override data for damage-calc.');
+  console.log(
+    'Generated Relumi random sets, in-game and battle tower trainer teams, and dex override data ' +
+    'for damage-calc.'
+  );
 }
 
 main();

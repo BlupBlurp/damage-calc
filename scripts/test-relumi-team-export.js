@@ -129,6 +129,55 @@ test('custom sets take precedence over generated trainer sets', () => {
   ].join('\n'));
 });
 
+test('resolves numbered battle tower teams to their own sets', () => {
+  const sandbox = loadModule({
+    localStorage: {},
+    RELUMI_INGAME_TEAMS: {
+      Pikachu: {
+        'bt-7': makeSet({moves: ['Thunder Shock'], trainerId: 'bt-7', team: ['Pikachu', 'Garchomp'], teamSlot: 1}),
+        'bt-7-2': makeSet({moves: ['Volt Tackle'], trainerId: 'bt-7-2', team: ['Pikachu'], teamSlot: 1}),
+      },
+      Garchomp: {
+        'bt-7': makeSet({moves: ['Earthquake'], trainerId: 'bt-7', team: ['Pikachu', 'Garchomp'], teamSlot: 2}),
+      },
+    },
+    RELUMI_INGAME_TRAINER_TEAMS: {'bt-7': ['Pikachu', 'Garchomp'], 'bt-7-2': ['Pikachu']},
+  });
+
+  // The base team must not pick up the numbered team's set for the same species.
+  assert.strictEqual(sandbox.getTeamMemberSetKey('Pikachu', 'bt-7', 0), 'bt-7');
+  assert.strictEqual(sandbox.getTeamMemberSetKey('Pikachu', 'bt-7-2', 0), 'bt-7-2');
+  assert.ok(sandbox.exportInGameTeamText('bt-7').indexOf('- Thunder Shock') !== -1);
+  assert.ok(sandbox.exportInGameTeamText('bt-7-2').indexOf('- Volt Tackle') !== -1);
+});
+
+test('keeps a repeated battle tower species on its own slot set', () => {
+  const sandbox = loadModule({
+    localStorage: {},
+    RELUMI_INGAME_TEAMS: {
+      Pikachu: {
+        'bt-9': makeSet({moves: ['Thunder Shock'], trainerId: 'bt-9', team: ['Pikachu', 'Pikachu'], teamSlot: 1}),
+        'bt-9-s2': makeSet({moves: ['Quick Attack'], trainerId: 'bt-9', team: ['Pikachu', 'Pikachu'], teamSlot: 2}),
+      },
+    },
+    RELUMI_INGAME_TRAINER_TEAMS: {'bt-9': ['Pikachu', 'Pikachu']},
+  });
+
+  assert.strictEqual(sandbox.getTeamMemberSetKey('Pikachu', 'bt-9', 0), 'bt-9');
+  assert.strictEqual(sandbox.getTeamMemberSetKey('Pikachu', 'bt-9', 1), 'bt-9-s2');
+  assert.strictEqual(sandbox.exportInGameTeamText('bt-9'), [
+    'Pikachu',
+    'Ability: Static',
+    'Hardy Nature',
+    '- Thunder Shock',
+    '',
+    'Pikachu',
+    'Ability: Static',
+    'Hardy Nature',
+    '- Quick Attack',
+  ].join('\n'));
+});
+
 test('rebuilds custom teams from storage ordered by team slot', () => {
   const sandbox = loadModule({
     localStorage: {
